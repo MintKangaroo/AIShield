@@ -1,0 +1,1084 @@
+{
+  "$defs": {
+    "AccuracyMetrics": {
+      "additionalProperties": false,
+      "description": "Required paired reporting for every attack evaluation.",
+      "properties": {
+        "attack_success_rate": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Attack Success Rate",
+          "type": "number"
+        },
+        "clean_accuracy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Clean Accuracy",
+          "type": "number"
+        },
+        "evaluated_samples": {
+          "exclusiveMinimum": 0,
+          "title": "Evaluated Samples",
+          "type": "integer"
+        },
+        "robust_accuracy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Robust Accuracy",
+          "type": "number"
+        }
+      },
+      "required": [
+        "clean_accuracy",
+        "robust_accuracy",
+        "attack_success_rate",
+        "evaluated_samples"
+      ],
+      "title": "AccuracyMetrics",
+      "type": "object"
+    },
+    "Artifact": {
+      "additionalProperties": false,
+      "description": "Content-addressed experiment output.",
+      "properties": {
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "media_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "uri": {
+          "minLength": 1,
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "kind",
+        "uri",
+        "sha256",
+        "media_type",
+        "size_bytes"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactKind": {
+      "description": "Artifact categories expected across the first release.",
+      "enum": [
+        "model",
+        "dataset_manifest",
+        "original_image",
+        "perturbation",
+        "adversarial_image",
+        "confusion_matrix",
+        "report",
+        "log",
+        "other"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    },
+    "AttackDefinition": {
+      "additionalProperties": false,
+      "description": "Named attack and its complete algorithm parameters.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "implementation": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Implementation",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "norm": {
+          "anyOf": [
+            {
+              "enum": [
+                "linf",
+                "l2",
+                "l1"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Norm"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "targeted": {
+          "title": "Targeted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "implementation",
+        "targeted",
+        "parameters"
+      ],
+      "title": "AttackDefinition",
+      "type": "object"
+    },
+    "AttackRun": {
+      "additionalProperties": false,
+      "description": "One attack execution against the experiment model and dataset.",
+      "properties": {
+        "accuracy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccuracyMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "definition": {
+          "$ref": "#/$defs/AttackDefinition"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "seed": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "definition",
+        "status",
+        "seed"
+      ],
+      "title": "AttackRun",
+      "type": "object"
+    },
+    "CleanBaseline": {
+      "additionalProperties": false,
+      "description": "Metrics produced by an unperturbed evaluation.",
+      "properties": {
+        "clean_accuracy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Clean Accuracy",
+          "type": "number"
+        },
+        "confusion_matrix_artifact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confusion Matrix Artifact Id"
+        },
+        "evaluated_samples": {
+          "exclusiveMinimum": 0,
+          "title": "Evaluated Samples",
+          "type": "integer"
+        },
+        "mean_inference_latency_ms": {
+          "minimum": 0.0,
+          "title": "Mean Inference Latency Ms",
+          "type": "number"
+        },
+        "mean_loss": {
+          "minimum": 0.0,
+          "title": "Mean Loss",
+          "type": "number"
+        },
+        "precision_by_class": {
+          "additionalProperties": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "title": "Precision By Class",
+          "type": "object"
+        },
+        "recall_by_class": {
+          "additionalProperties": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "title": "Recall By Class",
+          "type": "object"
+        }
+      },
+      "required": [
+        "clean_accuracy",
+        "mean_loss",
+        "evaluated_samples",
+        "mean_inference_latency_ms",
+        "precision_by_class",
+        "recall_by_class"
+      ],
+      "title": "CleanBaseline",
+      "type": "object"
+    },
+    "Dataset": {
+      "additionalProperties": false,
+      "description": "Immutable dataset identity and authorization record.",
+      "properties": {
+        "approved_for_research": {
+          "const": true,
+          "title": "Approved For Research",
+          "type": "boolean"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "sample_count": {
+          "exclusiveMinimum": 0,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "local",
+            "approved_public"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "split": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Split",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version",
+        "split",
+        "source",
+        "approved_for_research",
+        "manifest_sha256",
+        "sample_count"
+      ],
+      "title": "Dataset",
+      "type": "object"
+    },
+    "DefenseDefinition": {
+      "additionalProperties": false,
+      "description": "Named defense with configuration required for adaptive reevaluation.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "implementation": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Implementation",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "implementation",
+        "parameters"
+      ],
+      "title": "DefenseDefinition",
+      "type": "object"
+    },
+    "DefenseRun": {
+      "additionalProperties": false,
+      "description": "Defense execution and paired before/after attack measurements.",
+      "properties": {
+        "adaptive_attack_evaluated": {
+          "default": false,
+          "title": "Adaptive Attack Evaluated",
+          "type": "boolean"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccuracyMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attack_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attack Run Id"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccuracyMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "definition": {
+          "$ref": "#/$defs/DefenseDefinition"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "definition",
+        "status"
+      ],
+      "title": "DefenseRun",
+      "type": "object"
+    },
+    "EnvironmentSnapshot": {
+      "additionalProperties": false,
+      "description": "Execution environment needed to reproduce an experiment.",
+      "properties": {
+        "container_image_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Image Digest"
+        },
+        "cuda_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cuda Version"
+        },
+        "cudnn_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cudnn Version"
+        },
+        "device": {
+          "enum": [
+            "cpu",
+            "cuda"
+          ],
+          "title": "Device",
+          "type": "string"
+        },
+        "git_commit": {
+          "anyOf": [
+            {
+              "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Commit"
+        },
+        "package_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Package Versions",
+          "type": "object"
+        },
+        "platform": {
+          "minLength": 1,
+          "title": "Platform",
+          "type": "string"
+        },
+        "python_version": {
+          "minLength": 1,
+          "title": "Python Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "python_version",
+        "platform",
+        "package_versions",
+        "device"
+      ],
+      "title": "EnvironmentSnapshot",
+      "type": "object"
+    },
+    "Experiment": {
+      "additionalProperties": false,
+      "description": "Top-level reproducible experiment identity.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "dataset_id": {
+          "format": "uuid",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "model_version_id": {
+          "format": "uuid",
+          "title": "Model Version Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "seed": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status",
+        "seed",
+        "dataset_id",
+        "model_version_id",
+        "created_at"
+      ],
+      "title": "Experiment",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "description": "Raw scalar metric retained alongside any aggregate score.",
+      "properties": {
+        "attack_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attack Run Id"
+        },
+        "class_label": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Class Label"
+        },
+        "defense_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defense Run Id"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "name",
+        "value",
+        "unit"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "ModelArtifact": {
+      "additionalProperties": false,
+      "description": "Content-addressed model file.",
+      "properties": {
+        "format": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "exclusiveMinimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "uri": {
+          "minLength": 1,
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "uri",
+        "sha256",
+        "size_bytes",
+        "format"
+      ],
+      "title": "ModelArtifact",
+      "type": "object"
+    },
+    "ModelVersion": {
+      "additionalProperties": false,
+      "description": "Versioned model metadata bound to an immutable artifact.",
+      "properties": {
+        "architecture": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Architecture",
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "#/$defs/ModelArtifact"
+        },
+        "framework": {
+          "const": "pytorch",
+          "title": "Framework",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version",
+        "framework",
+        "architecture",
+        "artifact"
+      ],
+      "title": "ModelVersion",
+      "type": "object"
+    },
+    "RobustnessScore": {
+      "additionalProperties": false,
+      "description": "Versioned aggregate whose formula and raw inputs remain inspectable.",
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/ScoreComponent"
+          },
+          "minItems": 1,
+          "title": "Components",
+          "type": "array"
+        },
+        "formula": {
+          "minLength": 1,
+          "title": "Formula",
+          "type": "string"
+        },
+        "raw_metric_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Raw Metric Ids",
+          "type": "array"
+        },
+        "value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "value",
+        "formula",
+        "components",
+        "raw_metric_ids"
+      ],
+      "title": "RobustnessScore",
+      "type": "object"
+    },
+    "RunStatus": {
+      "description": "Lifecycle state shared by experiments and evaluation runs.",
+      "enum": [
+        "pending",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "SampleResult": {
+      "additionalProperties": false,
+      "description": "Per-sample prediction outcome with links to comparison artifacts.",
+      "properties": {
+        "adversarial_prediction": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adversarial Prediction"
+        },
+        "artifact_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "attack_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attack Run Id"
+        },
+        "attack_succeeded": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attack Succeeded"
+        },
+        "clean_prediction": {
+          "minimum": 0,
+          "title": "Clean Prediction",
+          "type": "integer"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "sample_index": {
+          "minimum": 0,
+          "title": "Sample Index",
+          "type": "integer"
+        },
+        "true_label": {
+          "minimum": 0,
+          "title": "True Label",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "sample_index",
+        "true_label",
+        "clean_prediction"
+      ],
+      "title": "SampleResult",
+      "type": "object"
+    },
+    "ScoreComponent": {
+      "additionalProperties": false,
+      "description": "Transparent contribution to a robustness score.",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "normalized_value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Normalized Value",
+          "type": "number"
+        },
+        "raw_value": {
+          "title": "Raw Value",
+          "type": "number"
+        },
+        "weight": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "raw_value",
+        "normalized_value",
+        "weight"
+      ],
+      "title": "ScoreComponent",
+      "type": "object"
+    }
+  },
+  "$id": "https://aishield.local/schemas/experiment-result-1.0.json",
+  "additionalProperties": false,
+  "description": "Self-contained exchange envelope for one image-model experiment.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "attack_runs": {
+      "items": {
+        "$ref": "#/$defs/AttackRun"
+      },
+      "title": "Attack Runs",
+      "type": "array"
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CleanBaseline"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "dataset": {
+      "$ref": "#/$defs/Dataset"
+    },
+    "defense_runs": {
+      "items": {
+        "$ref": "#/$defs/DefenseRun"
+      },
+      "title": "Defense Runs",
+      "type": "array"
+    },
+    "environment": {
+      "$ref": "#/$defs/EnvironmentSnapshot"
+    },
+    "experiment": {
+      "$ref": "#/$defs/Experiment"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/Metric"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelVersion"
+    },
+    "robustness_score": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RobustnessScore"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sample_results": {
+      "items": {
+        "$ref": "#/$defs/SampleResult"
+      },
+      "title": "Sample Results",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "experiment",
+    "dataset",
+    "model",
+    "environment"
+  ],
+  "title": "ExperimentResult",
+  "type": "object"
+}
