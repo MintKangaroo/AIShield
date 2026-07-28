@@ -1,8 +1,8 @@
 # Roadmap
 
-1. **Foundation** — API/package structure, dashboard shell, Compose, quality gates, reproducibility
+1. **Foundation (complete)** — API/package structure, dashboard shell, Compose, quality gates, reproducibility
    policy, and experiment result schema.
-2. **Registry** — MNIST/CIFAR-10 adapters, a small CNN, torchvision adapters, checksums, split and
+2. **Registry (complete)** — MNIST/CIFAR-10 adapters, a small CNN, torchvision adapters, checksums, split and
    seed records, and model evaluation API.
 3. **Clean baseline** — accuracy, loss, confusion matrix, per-class precision/recall, latency,
    artifacts, and same-seed rerun checks.

@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 from aishield import __version__
 from aishield.api.routes.health import router as health_router
+from aishield.api.routes.registry import router as registry_router
 from aishield.core.config import Settings, get_settings
+from aishield.registry.service import RegistryService
 
 
 class ServiceMetadata(BaseModel):
@@ -20,7 +22,9 @@ class ServiceMetadata(BaseModel):
     documentation: str
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, registry: RegistryService | None = None
+) -> FastAPI:
     """Build an application with explicit, testable settings."""
 
     runtime_settings = settings or get_settings()
@@ -33,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/api/openapi.json",
     )
     application.state.settings = runtime_settings
+    application.state.registry = registry or RegistryService(runtime_settings)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=runtime_settings.cors_origins,
@@ -41,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type", "Authorization"],
     )
     application.include_router(health_router, prefix="/api/v1")
+    application.include_router(registry_router, prefix="/api/v1")
 
     @application.get("/api/v1", response_model=ServiceMetadata, tags=["system"])
     def metadata() -> ServiceMetadata:

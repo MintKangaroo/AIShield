@@ -1,7 +1,7 @@
 .PHONY: install lint format format-check typecheck test schema-check web-install web-check compose-check check
 
 install:
-	python -m pip install -e ".[dev]"
+	python -m pip install -e ".[dev,ml]"
 
 lint:
 	python -m ruff check .

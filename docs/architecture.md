@@ -7,7 +7,9 @@ metric vocabulary and future execution engine are specific to image classificati
 privacy attacks, and model extraction must use separate engines and metric contracts when those
 programs are designed.
 
-Stage 1 establishes the control plane and result contract without executing ML workloads.
+Stages 1 and 2 establish the control plane, result contract, and in-process registry. The registry
+loads approved datasets and models and can run a bounded compatibility evaluation, but it is not the
+stage 3 clean-baseline engine.
 
 ```text
 Browser ──> Dashboard (nginx) ──> FastAPI
@@ -20,14 +22,17 @@ Browser ──> Dashboard (nginx) ──> FastAPI
 Evaluation worker (future) ──> content-addressed artifact directory
 ```
 
-PostgreSQL and Redis are provisioned now so service boundaries are stable, but the API deliberately
-does not report dependency readiness until persistence and queue adapters exist. The `/health/live`
-endpoint reports only process liveness.
+PostgreSQL and Redis are provisioned so service boundaries are stable, but registry metadata remains
+in process until a persistence adapter is introduced. The API deliberately does not report
+dependency readiness before those adapters use the dependencies. The `/health/live` endpoint reports
+only process liveness.
 
 ## Python boundaries
 
 - `aishield.api` owns HTTP transport and versioned routes.
 - `aishield.core` owns validated runtime configuration.
+- `aishield.registry` owns approved dataset/model adapters, deterministic seeding, hashing, safe
+  state-dict loading, in-memory handles, and basic evaluation.
 - `aishield.schemas` owns framework-independent exchange contracts.
 - Future `domain`, `registry`, `evaluation`, `attacks`, `defenses`, `metrics`, and `infrastructure`
   packages will depend inward on domain interfaces rather than on FastAPI or worker frameworks.
@@ -45,7 +50,7 @@ result. This avoids storing opaque binaries in relational rows and keeps exports
 
 ## Compute profiles
 
-CPU is the default and is sufficient for the development control plane and later small MNIST/CIFAR
-examples. The Compose `gpu` profile is opt-in and currently verifies NVIDIA container access only.
+CPU is the default and runs the registry with pinned PyTorch/torchvision CPU wheels. The Compose
+`gpu` profile is opt-in and currently verifies NVIDIA container access only.
 GPU execution workers will be added with explicit PyTorch/CUDA version pins when the evaluation
 engine is introduced.
