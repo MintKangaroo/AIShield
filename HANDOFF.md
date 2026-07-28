@@ -32,6 +32,7 @@ CPU Docker 데모가 검증되기 전에는 `develop`의 미완성 릴리스를 
 ### 2단계 — 모델·데이터셋 레지스트리
 
 커밋 메시지: `feat(registry): add reproducible model and dataset registry`
+GitHub 통합: PR `#1`, `develop` merge commit `35710c2`
 
 - 승인된 MNIST/CIFAR-10 torchvision adapter
 - seed 기반 `SmallCNN`과 allowlist 기반 torchvision model adapter
@@ -50,6 +51,14 @@ CPU Docker 데모가 검증되기 전에는 `develop`의 미완성 릴리스를 
 - CPU/GPU Compose 설정 검증 통과
 - CPU Compose 실제 기동, API·대시보드·nginx proxy health 검증 통과
 - 실제 MNIST adapter와 torchvision pretrained weight 로드 검증 완료
+
+### README와 작업 문서
+
+- `docs/readme` 브랜치에서 한국어 README를 전체 재구성했다.
+- 실제 CPU Compose 대시보드를 Playwright로 촬영한
+  `docs/assets/dashboard-overview.png`를 README에 포함했다.
+- README에 범위, 아키텍처, Docker/로컬 실행, 다운로드 승인, registry API 예시,
+  재현성, 보안 경계, 품질 검사, 브랜치 운영과 전체 로드맵을 정리했다.
 
 ## 중요한 설계 결정
 
