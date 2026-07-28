@@ -3,10 +3,26 @@
 Use Python 3.11 or 3.12 and Node.js 22. Keep changes typed, tested, documented, and limited to one
 roadmap milestone.
 
+## Branch policy
+
+| Branch | Purpose |
+| --- | --- |
+| `main` | Always runnable, tested stable release |
+| `develop` | Integration branch for the next release |
+| `feat/<feature-name>` | One feature developed from `develop` |
+| `fix/<issue-name>` | One bug fix |
+| `docs/<document-name>` | Documentation-only change |
+
+Feature, fix, and documentation branches merge into `develop` after their quality gates pass.
+Release changes move from `develop` to `main` only after the full CPU demo is healthy. Do not commit
+unfinished feature work directly to `main`.
+
 Run backend quality gates in an activated environment:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install torch==2.13.0 torchvision==0.28.0 \
+  --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -e ".[dev,ml]"
 make check
 ```
 

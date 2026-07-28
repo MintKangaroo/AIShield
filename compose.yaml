@@ -39,11 +39,15 @@ services:
       AISHIELD_DATABASE_URL: postgresql://${POSTGRES_USER:-aishield}:${POSTGRES_PASSWORD:-aishield}@postgres:5432/${POSTGRES_DB:-aishield}
       AISHIELD_REDIS_URL: redis://redis:6379/0
       AISHIELD_ARTIFACT_ROOT: /app/artifacts
+      AISHIELD_MODEL_ROOT: /app/artifacts/models
+      AISHIELD_DATASET_ROOT: /app/data
+      AISHIELD_ALLOW_PUBLIC_DOWNLOADS: ${AISHIELD_ALLOW_PUBLIC_DOWNLOADS:-false}
       AISHIELD_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
     volumes:
-      - ./artifacts:/app/artifacts
+      - artifact-data:/app/artifacts
+      - dataset-data:/app/data
     ports:
-      - "8000:8000"
+      - "${AISHIELD_API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +71,7 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
     ports:
-      - "3000:80"
+      - "${AISHIELD_DASHBOARD_PORT:-3000}:80"
     depends_on:
       api:
         condition: service_healthy
@@ -86,5 +90,7 @@ services:
               capabilities: ["gpu"]
 
 volumes:
+  artifact-data:
+  dataset-data:
   postgres-data:
   redis-data:

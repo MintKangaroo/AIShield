@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://aishield:aishield@localhost:5432/aishield"
     redis_url: str = "redis://localhost:6379/0"
     artifact_root: Path = Path("artifacts")
+    model_root: Path = Path("artifacts/models")
+    dataset_root: Path = Path("data")
+    allow_public_downloads: bool = False
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://localhost:3000"]
     )

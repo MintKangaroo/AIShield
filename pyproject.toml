@@ -33,8 +33,9 @@ dev = [
   "ruff>=0.12,<1",
 ]
 ml = [
-  "torch>=2.5,<3",
-  "torchvision>=0.20,<1",
+  "numpy==2.4.4",
+  "torch==2.13.0",
+  "torchvision==0.28.0",
 ]
 
 [project.scripts]
@@ -52,12 +53,16 @@ line-length = 100
 select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101"]
+"tests/**/*.py" = ["S101", "S311"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["torchvision", "torchvision.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers --cov=aishield --cov-report=term-missing --cov-fail-under=90"
