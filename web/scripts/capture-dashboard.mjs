@@ -4,12 +4,15 @@ import { dirname, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.env.AISHIELD_SCREENSHOT_URL ?? "http://127.0.0.1:5173";
+const browserCdpUrl = process.env.AISHIELD_BROWSER_CDP;
 const output = resolve(
   process.env.AISHIELD_SCREENSHOT_OUTPUT ?? "../docs/assets/dashboard-overview.png",
 );
 
 await mkdir(dirname(output), { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const browser = browserCdpUrl
+  ? await chromium.connectOverCDP(browserCdpUrl)
+  : await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({
     colorScheme: "dark",

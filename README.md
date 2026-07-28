@@ -33,6 +33,37 @@
 > baseline, bounded FGSM을 실제 API에서 실행한 결과입니다. Synthetic 데이터와 학습되지
 > 않은 모델의 점수는 보안 성능 주장이 아니라 제품 흐름 검증용입니다.
 
+## 🔎 한눈에 보는 AIShield
+
+AIShield는 모델과 데이터의 신원을 먼저 고정한 뒤, 동일 표본에서 clean/robust 성능을
+평가하고 결과를 검증 가능한 evidence bundle로 남깁니다.
+
+```mermaid
+flowchart LR
+    USER(["Researcher"]) --> UI["React<br/>Research Console"]
+    UI <-->|"typed /api"| API["FastAPI<br/>Control Plane"]
+
+    API --> REG["1 · Registry<br/>dataset + model identity"]
+    REG --> BASE["2 · Clean baseline<br/>accuracy · loss · matrix"]
+    BASE --> ATTACK["3 · Bounded attack<br/>FGSM · PGD"]
+    BASE --> COMPARE["4 · Paired metrics"]
+    ATTACK --> COMPARE
+    COMPARE --> EVIDENCE[("5 · Evidence bundle<br/>JSON · PNG · SHA-256")]
+    EVIDENCE --> VERIFY["6 · Exact rerun<br/>8 deterministic checks"]
+    VERIFY -.->|"compare evidence"| COMPARE
+
+    classDef primary fill:#b7ff3c,stroke:#82b91f,color:#0b1110;
+    classDef surface fill:#171b2a,stroke:#343b52,color:#f3f5ff;
+    classDef evidence fill:#33245c,stroke:#8f72da,color:#f3f5ff;
+    class USER,REG,BASE,ATTACK,COMPARE,VERIFY surface;
+    class UI,API primary;
+    class EVIDENCE evidence;
+```
+
+| Trusted inputs | Bounded evaluation | Reproducible evidence |
+| --- | --- | --- |
+| Dataset manifest와 model state를 SHA-256 identity에 연결 | 같은 표본에서 clean accuracy, robust accuracy, ASR 비교 | seed, 환경, prediction hash, JSON/PNG artifact 보존 |
+
 ## 🛡️ 왜 AIShield인가
 
 적대적 강건성 실험은 높은 숫자 하나보다 **그 숫자가 어떻게 만들어졌는지**가 더
@@ -126,13 +157,50 @@ Dashboard는 소개용 landing page가 아니라 API와 연결된 연구 console
 - **Guided onboarding** — dataset → model → baseline 순서가 비어 있으면 다음 작업을 안내
 - **Responsive UI** — desktop, tablet, mobile layout 지원
 
-<details>
-<summary><strong>Attack Lab 실제 화면 보기</strong></summary>
-<br>
+### 실제 연구 콘솔
 
-![FGSM clean/robust 비교와 bound를 보여주는 Attack Lab](docs/assets/dashboard-attack-lab.png)
+<p align="center"><sub>이미지를 클릭하면 원본 크기로 볼 수 있습니다.</sub></p>
 
-</details>
+<table>
+  <tr>
+    <td width="50%">
+      <a href="docs/assets/dashboard-overview.png">
+        <img src="docs/assets/dashboard-overview.png" alt="AIShield research overview dashboard">
+      </a>
+      <br><strong>01 · Research overview</strong>
+      <br><sub>API 상태, clean/robust 정확도, class recall, confusion matrix를 한 화면에서 확인합니다.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/assets/dashboard-baseline-runs.png">
+        <img src="docs/assets/dashboard-baseline-runs.png" alt="AIShield baseline run ledger">
+      </a>
+      <br><strong>02 · Baseline runs</strong>
+      <br><sub>봉인된 run ledger에서 metric, hash, artifact를 확인하고 동일 설정 재실행을 검증합니다.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/assets/dashboard-attack-lab.png">
+        <img src="docs/assets/dashboard-attack-lab.png" alt="AIShield bounded attack laboratory">
+      </a>
+      <br><strong>03 · Attack lab</strong>
+      <br><sub>FGSM/PGD의 epsilon과 iteration을 설정하고 paired clean/robust metric과 ASR을 비교합니다.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/assets/dashboard-registry.png">
+        <img src="docs/assets/dashboard-registry.png" alt="AIShield model and dataset registry">
+      </a>
+      <br><strong>04 · Trusted registry</strong>
+      <br><sub>dataset provenance, model state, framework, seed와 content-addressed identity를 추적합니다.</sub>
+    </td>
+  </tr>
+</table>
+
+<a href="docs/assets/dashboard-artifacts.png">
+  <img src="docs/assets/dashboard-artifacts.png" alt="AIShield generated evidence artifacts">
+</a>
+<p align="center"><strong>05 · Evidence vault</strong><br>
+<sub>각 baseline에 귀속된 JSON report와 confusion matrix PNG를 digest와 함께 내려받습니다.</sub></p>
 
 ### 화면 캡처 재생성
 
@@ -147,8 +215,10 @@ AISHIELD_SCREENSHOT_URL=http://localhost:3000 \
 ```
 
 환경 변수 `AISHIELD_SCREENSHOT_PAGE`에 `attacks`, `runs`, `registry`, `artifacts` 중 하나를
-지정하면 해당 화면을 캡처합니다. README의 이미지는 `1440 × 1050`, dark color scheme,
-animation disabled 조건으로 만들어집니다.
+지정하면 해당 화면을 캡처합니다. README의 이미지는 1440 px viewport의 full-page capture,
+dark color scheme, animation disabled 조건으로 만들어집니다. 브라우저가 별도 컨테이너나
+호스트에서 실행 중이면 `AISHIELD_BROWSER_CDP=http://127.0.0.1:9222`처럼 Chrome DevTools
+endpoint를 지정할 수 있습니다.
 
 ## 🔌 API 워크플로
 
