@@ -28,6 +28,8 @@ def test_service_metadata_and_openapi_are_exposed() -> None:
     assert metadata.status_code == 200
     assert metadata.json()["release_scope"] == "image-classification-robustness"
     assert "/api/v1/health/live" in openapi.json()["paths"]
+    assert "/api/v1/registry/baselines" in openapi.json()["paths"]
+    assert "/api/v1/registry/attacks" in openapi.json()["paths"]
 
 
 def test_settings_are_cached() -> None:

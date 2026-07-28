@@ -1,400 +1,421 @@
-# AIShield
+![AIShield — Reproducible adversarial robustness research console](docs/assets/readme-hero.svg)
 
-> PyTorch 이미지 분류 모델의 적대적 강건성을 안전하고 재현 가능하게 평가하는
-> AI Security 연구 플랫폼
+<p align="center">
+  <a href="https://github.com/MintKangaroo/AIShield/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MintKangaroo/AIShield/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.11 and 3.12" src="https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white">
+  <img alt="PyTorch 2.13" src="https://img.shields.io/badge/PyTorch-2.13-EE4C2C?logo=pytorch&logoColor=white">
+  <img alt="API v0.1.0" src="https://img.shields.io/badge/API-v0.1.0-009688?logo=fastapi&logoColor=white">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827">
+  <img alt="Coverage gate 90%" src="https://img.shields.io/badge/Coverage_gate-90%25-bbf451">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-9e84ff"></a>
+</p>
 
-[![CI](https://github.com/MintKangaroo/AIShield/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MintKangaroo/AIShield/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.13-EE4C2C?logo=pytorch&logoColor=white)
-![API](https://img.shields.io/badge/FastAPI-0.1.0-009688?logo=fastapi&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-8A2BE2)
+<p align="center">
+  <strong>PyTorch 이미지 분류 모델의 clean/robust 성능을 같은 표본에서 평가하고,<br>
+  모델·데이터·seed·환경·결과 artifact를 하나의 재현 가능한 근거로 묶는 AI Security 연구 플랫폼</strong>
+</p>
 
-![AIShield 연구 대시보드](docs/assets/dashboard-overview.png)
+<p align="center">
+  <a href="#-왜-aishield인가">Why</a> ·
+  <a href="#-5분-데모">Quick start</a> ·
+  <a href="#-대시보드">Dashboard</a> ·
+  <a href="#-api-워크플로">API</a> ·
+  <a href="#-아키텍처">Architecture</a> ·
+  <a href="#-재현성과-보안-경계">Security</a> ·
+  <a href="#-개발과-검증">Development</a>
+</p>
 
-AIShield는 공격 성공률 하나만으로 모델 보안을 판단하지 않습니다. 동일한 데이터셋,
-모델, seed, 공격 파라미터와 실행 환경을 다시 구성할 수 있도록 실험 근거를 남기고,
-`clean accuracy`와 `robust accuracy`를 함께 비교하는 것을 기본 원칙으로 삼습니다.
+---
 
-현재 `develop` 기준으로 **2단계 모델·데이터셋 레지스트리**까지 구현되어 있습니다.
-상세 clean baseline, 적대적 공격과 방어 실행은 이후 단계에서 순차적으로 추가됩니다.
+![실제 synthetic baseline과 FGSM 결과가 연결된 AIShield 대시보드](docs/assets/dashboard-overview.png)
 
-## 핵심 원칙
+> 위 화면은 네트워크 다운로드 없이 내장 `Signal-10` 데이터, seeded SmallCNN, clean
+> baseline, bounded FGSM을 실제 API에서 실행한 결과입니다. Synthetic 데이터와 학습되지
+> 않은 모델의 점수는 보안 성능 주장이 아니라 제품 흐름 검증용입니다.
 
-- 모든 결과는 입력, 설정, 코드와 환경 정보로 재현할 수 있어야 합니다.
-- dataset version/split/manifest와 model artifact/state hash를 기록합니다.
-- 공격 평가에서는 clean accuracy와 robust accuracy를 항상 함께 제공합니다.
-- 방어 효과는 adaptive attack과 transfer attack으로 다시 검증합니다.
-- gradient masking 의심 신호를 강건성 향상으로 잘못 해석하지 않습니다.
-- 원본 입력, perturbation, adversarial input을 비교 가능한 artifact로 남깁니다.
-- 로컬 dataset 또는 코드에 명시된 승인 공개 dataset만 사용합니다.
-- 집계 점수는 raw metric을 숨기지 않으며 공식과 가중치를 공개합니다.
+## 🛡️ 왜 AIShield인가
 
-## 현재 구현 범위
+적대적 강건성 실험은 높은 숫자 하나보다 **그 숫자가 어떻게 만들어졌는지**가 더
+중요합니다. 다른 데이터 split, 바뀐 checkpoint, 누락된 attack parameter, 우연히 달라진
+실행 환경은 결과를 재현 불가능하게 만들 수 있습니다.
 
-| 영역 | 제공 기능 | 상태 |
-| --- | --- | --- |
-| 연구 API | 버전화된 FastAPI, OpenAPI/Redoc, liveness | 완료 |
-| 실험 계약 | 엄격한 Pydantic model과 생성형 JSON Schema | 완료 |
-| Dataset registry | MNIST, CIFAR-10, version/split/manifest hash | 완료 |
-| Model registry | SmallCNN, 제한된 torchvision adapter, checksum | 완료 |
-| 재현성 | Python/NumPy/PyTorch seed와 deterministic algorithm | 완료 |
-| 기본 평가 | 등록 model/dataset 호환성, clean accuracy/loss | 제한 제공 |
-| Clean baseline | confusion matrix, class metric, latency, artifact | 다음 단계 |
-| 공격/방어 | FGSM, PGD, 추가 공격, defense 평가 | 예정 |
-| Dashboard | API 상태와 향후 실험 화면을 위한 React 골격 | 기본 골격 |
-| LLM Security | 실행 엔진과 분리된 인터페이스/로드맵 | 10단계 문서화 |
+AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 
-현재 SmallCNN은 seed로 초기화하거나 사용자가 허용된 model root에 둔 weights-only
-checkpoint에서 복원합니다. 학습되지 않은 모델의 정확도는 보안 성능을 의미하지 않으며,
-연구 결과로 사용하려면 검증된 checkpoint와 3단계 baseline 절차가 필요합니다.
+- `clean_accuracy`와 `robust_accuracy`를 같은 표본 집합에서 함께 기록합니다.
+- 공격 성공률은 clean 상태에서 맞힌 표본만 분모로 사용합니다.
+- 입력을 `[0, 1]` 범위로 clamp하고 실제 perturbation의 L∞ bound를 다시 검사합니다.
+- dataset manifest, model state, model artifact, ordered prediction의 SHA-256을 보존합니다.
+- Python·PyTorch·torchvision·NumPy·matplotlib, OS, device, Git commit을 캡처합니다.
+- 같은 설정의 재실행은 원본을 덮어쓰지 않고 별도 run으로 만든 뒤 근거를 비교합니다.
+- latency는 기록하되 하드웨어 노이즈 때문에 재현성 pass/fail에서는 제외합니다.
+- 외부 dataset/weight 다운로드는 기본 거부하며 고정된 공식 adapter만 명시적으로 허용합니다.
+- gradient가 전부 0이면 강건하다고 해석하지 않고 gradient masking 경고를 노출합니다.
 
-## 시스템 구성
+## ✨ 현재 제공 기능
 
-```mermaid
-flowchart LR
-    UI["React Dashboard"] -->|"/api"| API["FastAPI"]
-    API --> REG["In-process Registry"]
-    REG --> DATA["MNIST / CIFAR-10 adapters"]
-    REG --> MODEL["SmallCNN / torchvision adapters"]
-    REG --> EVAL["Bounded clean evaluation"]
-    DATA --> DV[("Dataset volume")]
-    MODEL --> AV[("Artifact volume")]
-    API -. "후속 영속화" .-> PG[("PostgreSQL")]
-    API -. "후속 worker queue" .-> REDIS[("Redis")]
-```
+| 영역 | 구현 내용 | 상태 |
+| --- | --- | :---: |
+| Dataset registry | 로컬 생성 `Signal-10`, 승인된 MNIST/CIFAR-10, split·manifest hash | ✅ |
+| Model registry | seeded SmallCNN, allowlist torchvision model, weights-only checkpoint | ✅ |
+| Clean baseline | accuracy/loss, confusion matrix, class별 precision/recall, latency | ✅ |
+| 재현성 검증 | 동일 설정 재실행, 8개 deterministic evidence check | ✅ |
+| FGSM | single-step, L∞ bound, paired clean/robust metric | ✅ |
+| PGD | iterative projection, random start, configurable step/iteration | ✅ |
+| Evidence | JSON report, confusion matrix PNG, SHA-256, 안전한 다운로드 API | ✅ |
+| Dashboard | 등록·실행·비교·검증·artifact 다운로드를 지원하는 React console | ✅ |
+| API | strict request contract, OpenAPI/Swagger/ReDoc, 404/정책 오류 변환 | ✅ |
+| 품질 게이트 | Ruff, mypy strict, pytest, 90% coverage, TypeScript, Docker smoke | ✅ |
+| 추가 공격·방어 | BIM/DeepFool/CW/AutoAttack, adaptive/transfer defense 평가 | 🧭 |
 
-레지스트리 metadata와 runtime object는 현재 API 프로세스 메모리에 유지됩니다. API를
-재시작하면 등록 항목은 사라지지만 dataset과 model artifact 파일은 Docker volume 또는
-설정한 로컬 경로에 남습니다. PostgreSQL 영속화와 Redis worker는 다음 구현 단계에서
-연결할 수 있도록 Compose 서비스와 도메인 경계를 먼저 준비했습니다.
+AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/PGD 연구
+MVP**입니다. 추가 공격과 방어를 구현하기 전에는 두 공격의 결과만으로 일반적인 강건성을
+주장하지 않습니다.
 
-## 빠른 시작
+## 🚀 5분 데모
 
-### Docker CPU 데모
+### 1. Docker로 전체 스택 실행
 
-필수 조건:
-
-- Docker Engine
-- Docker Compose plugin
-- 최초 이미지 빌드와 공개 dataset 사용 시 인터넷 연결
+필수 조건은 Docker Engine과 Docker Compose plugin입니다.
 
 ```bash
 cp .env.example .env
 docker compose up --build --wait
 ```
 
-기본 접속 주소:
-
-| 서비스 | 주소 |
+| 화면 | 주소 |
 | --- | --- |
-| Dashboard | <http://localhost:3000> |
+| Research Dashboard | <http://localhost:3000> |
 | Swagger UI | <http://localhost:8000/api/docs> |
 | ReDoc | <http://localhost:8000/api/redoc> |
 | Liveness | <http://localhost:8000/api/v1/health/live> |
 
+### 2. 원클릭 zero-download workflow
+
+Dashboard에서 **Launch zero-download demo**를 누르면 다음 흐름이 실제로 실행됩니다.
+
+```mermaid
+flowchart LR
+    A["Generate Signal-10"] --> B["Register seeded SmallCNN"]
+    B --> C["Run clean baseline"]
+    C --> D["Generate JSON + matrix evidence"]
+    D --> E["Run bounded FGSM"]
+    E --> F["Compare clean / robust"]
+```
+
+외부 네트워크나 공개 dataset 승인 없이 실행할 수 있습니다. 결과는 연구 주장이 아닌
+설치·연결·artifact pipeline 확인용입니다.
+
+### 3. 종료
+
 ```bash
-curl http://localhost:8000/api/v1/health/live
+docker compose down
 ```
 
-정상 응답 예시:
+`docker compose down --volumes`는 PostgreSQL/Redis뿐 아니라 내려받은 dataset과 model
+artifact volume도 제거합니다. 실험 자료가 필요 없을 때만 사용하십시오.
 
-```json
-{
-  "status": "ok",
-  "service": "aishield-api",
-  "version": "0.1.0",
-  "environment": "development",
-  "compute_device": "cpu"
-}
+## 🖥️ 대시보드
+
+Dashboard는 소개용 landing page가 아니라 API와 연결된 연구 console입니다.
+
+- **Overview** — API/device 상태, clean·robust 성능, class recall, confusion matrix
+- **Baseline runs** — run ledger, 모델·dataset 연결, hash, latency, exact-rerun 검증
+- **Attack lab** — FGSM/PGD 생성, epsilon·iteration 설정, clean/robust/ASR 비교
+- **Registry** — dataset provenance와 model state/artifact identity 확인
+- **Artifacts** — baseline JSON과 confusion matrix PNG 다운로드
+- **Guided onboarding** — dataset → model → baseline 순서가 비어 있으면 다음 작업을 안내
+- **Responsive UI** — desktop, tablet, mobile layout 지원
+
+<details>
+<summary><strong>Attack Lab 실제 화면 보기</strong></summary>
+<br>
+
+![FGSM clean/robust 비교와 bound를 보여주는 Attack Lab](docs/assets/dashboard-attack-lab.png)
+
+</details>
+
+### 화면 캡처 재생성
+
+Playwright Chromium을 설치한 로컬 환경에서:
+
+```bash
+npm --prefix web ci
+(cd web && npx playwright install chromium)
+
+AISHIELD_SCREENSHOT_URL=http://localhost:3000 \
+  npm --prefix web run screenshot
 ```
 
-호스트 포트가 이미 사용 중이면 `.env`에서 포트만 변경합니다.
+환경 변수 `AISHIELD_SCREENSHOT_PAGE`에 `attacks`, `runs`, `registry`, `artifacts` 중 하나를
+지정하면 해당 화면을 캡처합니다. README의 이미지는 `1440 × 1050`, dark color scheme,
+animation disabled 조건으로 만들어집니다.
+
+## 🔌 API 워크플로
+
+아래 예시는 `jq`를 사용합니다. 모든 request model은 알 수 없는 field를 거부합니다.
+
+### 1. 네트워크 없는 demo dataset 등록
+
+```bash
+DATASET_ID="$(
+  curl -fsS -X POST http://localhost:8000/api/v1/registry/datasets \
+    -H "Content-Type: application/json" \
+    -d '{"name":"synthetic","split":"test","download":false}' |
+  jq -r '.id'
+)"
+```
+
+### 2. Dataset-compatible SmallCNN 생성
+
+```bash
+MODEL_ID="$(
+  curl -fsS -X POST http://localhost:8000/api/v1/registry/models/small-cnn \
+    -H "Content-Type: application/json" \
+    -d "{\"dataset_id\":\"${DATASET_ID}\",\"seed\":1729}" |
+  jq -r '.id'
+)"
+```
+
+### 3. Clean baseline
+
+```bash
+curl -fsS -X POST http://localhost:8000/api/v1/registry/baselines \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model_version_id\":\"${MODEL_ID}\",
+    \"dataset_id\":\"${DATASET_ID}\",
+    \"seed\":1729,
+    \"batch_size\":64,
+    \"max_samples\":256,
+    \"warmup_batches\":1
+  }" | jq
+```
+
+응답에는 scalar metric만이 아니라 confusion matrix, class metric, latency, prediction
+fingerprint, 환경 snapshot, artifact URI/hash가 포함됩니다.
+
+### 4. Bounded FGSM
+
+```bash
+curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model_version_id\":\"${MODEL_ID}\",
+    \"dataset_id\":\"${DATASET_ID}\",
+    \"algorithm\":\"fgsm\",
+    \"epsilon\":0.031372549,
+    \"seed\":1729,
+    \"batch_size\":64,
+    \"max_samples\":256
+  }" | jq '.metrics'
+```
+
+PGD는 `algorithm: "pgd"`와 함께 `step_size`, `iterations`, `random_start`를 지정할 수
+있습니다. 생략하면 `epsilon / 4`, `10 iterations`, random start가 적용됩니다.
+
+### Endpoint 요약
+
+| Method | Endpoint | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/v1/health/live` | process liveness와 device |
+| `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
+| `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
+| `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
+| `GET` | `/api/v1/registry/models` | model list |
+| `POST / GET` | `/api/v1/registry/baselines` | clean baseline run / list |
+| `GET` | `/api/v1/registry/baselines/{id}` | baseline evidence |
+| `POST` | `/api/v1/registry/baselines/{id}/verify` | exact-config rerun |
+| `GET` | `/api/v1/registry/baselines/{id}/artifacts/{artifact_id}` | evidence download |
+| `POST / GET` | `/api/v1/registry/attacks` | FGSM/PGD run / list |
+| `GET` | `/api/v1/registry/attacks/{id}` | adversarial evidence |
+
+## 🧱 아키텍처
+
+```mermaid
+flowchart TB
+    UI["React 19 Research Console"] -->|"/api"| NGINX["nginx reverse proxy"]
+    NGINX --> API["FastAPI / strict contracts"]
+
+    API --> REG["In-process Registry Service"]
+    REG --> DATA["Signal-10 / MNIST / CIFAR-10"]
+    REG --> MODEL["SmallCNN / torchvision adapters"]
+    REG --> BASE["Clean Baseline Engine"]
+    REG --> ATTACK["FGSM / PGD Engine"]
+
+    BASE --> EVIDENCE[("JSON + PNG artifacts")]
+    ATTACK --> METRIC["Paired clean / robust metrics"]
+
+    DATA --> DATA_VOL[("Dataset volume")]
+    MODEL --> ART_VOL[("Model artifact volume")]
+    EVIDENCE --> ART_VOL
+
+    API -. "persistence boundary" .-> PG[("PostgreSQL")]
+    API -. "worker boundary" .-> REDIS[("Redis")]
+```
+
+현재 registry의 runtime handle과 run index는 API 프로세스 메모리에 있습니다. API를
+재시작하면 목록은 초기화되지만 dataset과 content-addressed artifact 파일은 volume에
+남습니다. PostgreSQL persistence와 Redis worker는 다음 운영 단계의 명시된 경계이며,
+현재 구현된 것처럼 표시하지 않습니다.
+
+### Python package 경계
+
+```text
+src/aishield/
+├── api/          # HTTP transport, request validation, OpenAPI
+├── attacks/      # FGSM/PGD contract와 bounded runner
+├── core/         # 환경 설정
+├── evaluation/   # clean metric, environment snapshot, artifact renderer
+├── registry/     # dataset/model adapter, safe loading, in-process orchestration
+└── schemas/      # versioned experiment exchange contract
+```
+
+## 📐 Metric 정의
+
+한 attack run의 모든 지표는 동일한 `evaluated_samples`를 사용합니다.
+
+```text
+clean_accuracy  = clean_correct / evaluated_samples
+robust_accuracy = adversarial_correct / evaluated_samples
+attack_success_rate = successful_attacks / clean_correct
+```
+
+`successful_attacks`는 **clean prediction이 정답이었으나 adversarial prediction이
+오답으로 바뀐 표본**입니다. clean-correct 표본이 0개이면 ASR은 `0.0`으로 기록하고 raw
+count를 함께 제공합니다.
+
+FGSM과 PGD는 raw input 공간에서 perturbation을 만들고 다음 조건을 수치로 재확인합니다.
+
+```text
+x_adv = clamp(x + delta, 0, 1)
+||x_adv - x||∞ <= epsilon + 1e-6
+```
+
+## 🔐 재현성과 보안 경계
+
+### 기록되는 근거
+
+- Python `random`, NumPy, PyTorch CPU와 모든 CUDA device seed
+- deterministic PyTorch algorithm, cuDNN deterministic mode, benchmark 비활성화
+- dataset version/split/sample count/transform/torchvision version/manifest SHA-256
+- model architecture/framework/seed/preprocessing/device/state SHA-256/artifact SHA-256
+- attack algorithm/norm/epsilon/step/iterations/random start/sample cap
+- clean/adversarial ordered prediction SHA-256
+- OS/platform, dependency versions, Git commit, container digest(주입된 경우)
+- JSON/PNG artifact의 URI, byte size, media type, SHA-256
+
+### 방어적 입력 처리
+
+- checkpoint는 configured model root 아래의 상대 경로만 허용합니다.
+- symlink와 path traversal을 거부합니다.
+- `torch.load(..., weights_only=True)`와 strict key/shape match를 사용합니다.
+- 임의 dataset URL과 allowlist 밖의 torchvision architecture를 받지 않습니다.
+- CUDA를 요청했는데 사용할 수 없으면 CPU로 조용히 대체하지 않고 실패합니다.
+- attack 입력의 finite value와 `[0, 1]` 범위를 검사합니다.
+- artifact는 등록된 run과 configured artifact root 아래의 파일만 다운로드할 수 있습니다.
+
+이 플랫폼은 소유하거나 명시적으로 평가 승인을 받은 model과 dataset에만 사용해야 합니다.
+자세한 정책은 [Threat Model](docs/threat-model.md)과
+[Reproducibility Policy](docs/reproducibility.md)를 참고하십시오.
+
+## ⚙️ 설정
+
+공개 dataset과 pretrained weight 다운로드는 기본적으로 꺼져 있습니다.
+
+```dotenv
+AISHIELD_ALLOW_PUBLIC_DOWNLOADS=false
+```
+
+MNIST/CIFAR-10 또는 공식 torchvision weight를 받을 때만 운영자가 직접 `true`로 바꾸고
+서비스를 재시작합니다. 이 설정은 임의 URL 다운로드를 허용하지 않습니다.
+
+포트 충돌 시:
 
 ```dotenv
 AISHIELD_API_PORT=18000
 AISHIELD_DASHBOARD_PORT=13000
 ```
 
-서비스 내부 포트와 nginx의 `/api` proxy는 그대로 유지됩니다. 데이터 volume을
-보존하면서 종료하려면 다음 명령을 사용합니다.
-
-```bash
-docker compose down
-```
-
-`docker compose down --volumes`는 내려받은 dataset과 model artifact를 포함한 AIShield
-volume도 삭제하므로, 실험 자료가 필요하지 않을 때만 사용하십시오.
-
-### 선택적 GPU 환경 점검
-
-기본 API image는 재현 가능한 CPU 실행을 위해 PyTorch `2.13.0`과 torchvision `0.28.0`
-CPU wheel을 사용합니다. `gpu` profile은 NVIDIA Container Toolkit과 GPU 접근 가능 여부만
-확인하며, 현재 API를 CUDA worker로 전환하지 않습니다.
+선택적 NVIDIA runtime 접근 확인:
 
 ```bash
 docker compose --profile gpu run --rm gpu-check
 ```
 
-## 공개 dataset과 pretrained weight 승인
+기본 API image는 재현 가능한 CPU 실행입니다. `gpu-check` profile은 GPU 접근만 확인하며
+API를 CUDA worker로 전환하지 않습니다.
 
-외부 다운로드는 기본적으로 차단됩니다.
-
-```dotenv
-AISHIELD_ALLOW_PUBLIC_DOWNLOADS=false
-```
-
-MNIST, CIFAR-10 또는 allowlist에 포함된 공식 torchvision weight를 내려받으려면 운영자가
-`.env`에서 명시적으로 승인한 뒤 서비스를 다시 시작해야 합니다.
-
-```dotenv
-AISHIELD_ALLOW_PUBLIC_DOWNLOADS=true
-```
-
-이 설정은 내장 adapter가 고정한 공식 출처에만 적용됩니다. API 사용자가 임의 URL을
-입력하거나, 허용되지 않은 architecture를 요청하거나, model root 밖의 checkpoint를
-불러오는 것은 허용하지 않습니다.
-
-## 레지스트리 사용 예시
-
-아래 예시는 공개 다운로드를 승인한 Docker 환경을 기준으로 합니다.
-
-### 1. Dataset split 등록
-
-```bash
-curl -X POST http://localhost:8000/api/v1/registry/datasets \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "mnist",
-    "split": "test",
-    "download": true
-  }'
-```
-
-응답에는 재사용할 `id`와 다음 무결성 metadata가 포함됩니다.
-
-- 고정된 adapter version과 canonical source
-- 정확한 split과 sample count
-- 입력 shape와 class 수
-- torchvision version과 transform
-- 로컬 materialization 전체의 `manifest_sha256`
-
-### 2. Dataset 호환 SmallCNN 등록
-
-`<DATASET_ID>`를 이전 응답의 `id`로 바꿉니다.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/registry/models/small-cnn \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dataset_id": "<DATASET_ID>",
-    "seed": 1729
-  }'
-```
-
-모델 응답은 framework/architecture/seed/parameter count와 함께 두 종류의 hash를
-제공합니다.
-
-- `state_dict_sha256`: serialization과 무관한 tensor 상태 fingerprint
-- `artifact.sha256`: 실제 저장된 `.pt` 파일의 SHA-256
-
-### 3. 제한된 clean 호환성 평가
-
-`<MODEL_VERSION_ID>`와 `<DATASET_ID>`를 실제 값으로 바꿉니다.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/registry/evaluations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model_version_id": "<MODEL_VERSION_ID>",
-    "dataset_id": "<DATASET_ID>",
-    "seed": 1729,
-    "batch_size": 64,
-    "max_samples": 512
-  }'
-```
-
-공격을 실행하지 않은 결과는 robust accuracy를 0으로 꾸미지 않습니다.
-
-```json
-{
-  "clean_accuracy": 0.1,
-  "robust_accuracy": null,
-  "robust_accuracy_status": "not_evaluated"
-}
-```
-
-위 값은 응답 구조를 설명하기 위한 예시입니다. 실제 정확도와 loss는 모델 checkpoint,
-dataset materialization과 평가 표본에 따라 달라집니다.
-
-## API 요약
-
-| Method | Endpoint | 설명 |
-| --- | --- | --- |
-| `GET` | `/api/v1` | 서비스 metadata |
-| `GET` | `/api/v1/health/live` | 프로세스 liveness |
-| `POST` | `/api/v1/registry/datasets` | 승인 dataset split 로드 |
-| `GET` | `/api/v1/registry/datasets` | 현재 프로세스의 dataset 목록 |
-| `POST` | `/api/v1/registry/models/small-cnn` | SmallCNN 생성/checkpoint 복원 |
-| `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model 로드 |
-| `GET` | `/api/v1/registry/models` | 현재 프로세스의 model 목록 |
-| `POST` | `/api/v1/registry/evaluations` | 제한된 clean 호환성 평가 |
-
-요청과 응답의 전체 계약은 실행 중인 Swagger UI 또는 [API 문서](docs/api.md)에서 확인할
-수 있습니다. 모든 request model은 알 수 없는 field를 거부해 파라미터 오타가 조용히
-무시되지 않게 합니다.
-
-## 로컬 개발
+## 🧪 개발과 검증
 
 지원 환경:
 
 - Python 3.11 또는 3.12
 - Node.js 22
-- CPU 기본 지원
+- CPU 기본, CUDA는 명시적 opt-in
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
 python -m pip install torch==2.13.0 torchvision==0.28.0 \
   --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -e ".[dev,ml]"
-make check
-```
 
-API 실행:
-
-```bash
-source .venv/bin/activate
-aishield-api
-```
-
-Dashboard 실행:
-
-```bash
 npm --prefix web ci
+make check
+npm --prefix web run build
+docker compose config --quiet
+```
+
+현재 품질 기준은 다음을 동시에 요구합니다.
+
+- Ruff lint + format
+- mypy `strict = true`
+- pytest 50개와 line coverage 90% gate
+- 생성된 JSON Schema drift check
+- React/TypeScript no-emit check + Vite production build
+- Compose CPU demo health smoke
+
+Vite 개발 서버:
+
+```bash
+aishield-api
 npm --prefix web run dev
 ```
 
-Vite 개발 서버는 기본적으로 `/api` 요청을 `localhost:8000`으로 전달합니다.
-
-## 품질 검사
-
-백엔드 전체 검사:
+API가 기본 `localhost:8000`이 아니면:
 
 ```bash
-make check
+AISHIELD_API_PROXY=http://localhost:18000 npm --prefix web run dev
 ```
 
-개별 명령:
+## 🗺️ 다음 연구 단계
 
-```bash
-python -m ruff check .
-python -m ruff format --check .
-python -m mypy .
-python -m pytest
-python -m aishield.schemas.export \
-  --check schemas/experiment-result.schema.json
-```
+1. ✅ Reproducible registry
+2. ✅ Clean baseline과 evidence artifact
+3. ✅ FGSM
+4. ✅ PGD
+5. 🧭 BIM, DeepFool, Carlini–Wagner, AutoAttack adapter
+6. 🧭 Adversarial training/TRADES/preprocessing defense
+7. 🧭 Adaptive attack, transferability, gradient-masking diagnostic 강화
+8. 🧭 Raw metric을 보존하는 versioned Robustness Score
+9. 🧭 PostgreSQL persistence와 Redis-backed isolated worker
+10. 🧭 이미지 평가와 분리된 LLM Security interface
 
-프런트엔드와 Compose 검사:
+세부 완료 조건은 [Roadmap](docs/roadmap.md)에 정리되어 있습니다.
 
-```bash
-npm --prefix web run check
-npm --prefix web run build
-docker compose config --quiet
-docker compose --profile gpu config --quiet
-```
+## 📚 문서
 
-GitHub Actions는 Python 3.11/3.12 backend, React build, 실제 Docker CPU demo를 각각
-검증합니다. 현재 test suite는 39개 테스트와 90% 이상의 line coverage gate를 사용합니다.
-
-## 재현성과 무결성
-
-AIShield가 고정하거나 기록하는 항목:
-
-- Python `random`, NumPy, PyTorch CPU와 모든 CUDA device seed
-- deterministic PyTorch algorithm, cuDNN deterministic mode와 benchmark 비활성화
-- dataset 이름/version/split/sample count/transform/torchvision version
-- dataset directory의 정렬된 path/size/content manifest hash
-- model architecture/framework/version/seed/preprocessing/device
-- tensor 이름/dtype/shape/raw bytes 기반 canonical model state hash
-- 실제 model artifact URI/size/SHA-256
-- 평가 seed, 표본 수, clean accuracy, loss와 robust 평가 상태
-
-GPU kernel이나 dependency가 달라지면 수치 차이가 생길 수 있으므로 후속 실험 결과는
-OS/platform, dependency, device, Git commit과 container digest까지 포함하도록 설계합니다.
-정책 전문은 [재현성 정책](docs/reproducibility.md)을 참고하십시오.
-
-## 보안 경계
-
-- checkpoint는 configured model root 아래의 상대 경로만 허용합니다.
-- symlink와 path traversal을 거부합니다.
-- `torch.load(..., weights_only=True)`로 tensor state dictionary만 받습니다.
-- checkpoint shape와 key는 model에 strict하게 일치해야 합니다.
-- CUDA 요청 시 GPU가 없으면 CPU로 조용히 대체하지 않고 실패합니다.
-- 원본 dataset, 내려받은 weight, model artifact와 실험 결과는 Git에 포함하지 않습니다.
-- `.env`와 credential이 포함된 URI는 커밋하지 않습니다.
-
-이 플랫폼은 소유하거나 명시적으로 평가 승인을 받은 model과 dataset에만 사용해야 합니다.
-현재 범위에는 LLM 공격, 개인정보 공격, model extraction 실행 기능이 포함되지 않습니다.
-
-## 디렉터리 구조
-
-```text
-.
-├── compose.yaml                  # CPU 기본 / 선택적 GPU profile
-├── docker/                       # API, dashboard image와 nginx 설정
-├── docs/                         # 정책, 설계, API와 단계별 연구 문서
-├── schemas/                      # 생성된 실험 결과 JSON Schema
-├── src/aishield/
-│   ├── api/                      # FastAPI application과 route
-│   ├── core/                     # 검증된 runtime 설정
-│   ├── registry/                 # dataset/model adapter, hash, 평가 service
-│   └── schemas/                  # 실험 결과 domain contract
-├── tests/unit/                   # 단위 및 API contract 테스트
-└── web/                          # React + TypeScript dashboard
-```
-
-## 브랜치와 릴리스 운영
-
-| 브랜치 | 용도 |
-| --- | --- |
-| `main` | 항상 실행 가능한 검증된 안정 버전 |
-| `develop` | 다음 릴리스 기능을 모으는 통합 브랜치 |
-| `feat/<기능명>` | `develop`에서 분기하는 기능별 작업 |
-| `fix/<문제명>` | 버그 수정 |
-| `docs/<문서명>` | 문서만 변경 |
-
-기능·수정·문서 브랜치는 자동 검사를 통과한 PR로 `develop`에 병합합니다. 전체 CPU demo까지
-검증된 릴리스만 `develop`에서 `main`으로 승격합니다. 자세한 규칙은
-[기여 가이드](CONTRIBUTING.md)를 참고하십시오.
-
-## 로드맵
-
-1. ✅ 프로젝트 초기화
-2. ✅ 모델·dataset registry
-3. ⏳ Clean baseline
-4. ⏳ FGSM
-5. ⏳ PGD
-6. ⏳ BIM, DeepFool, Carlini-Wagner, AutoAttack adapter
-7. ⏳ Adversarial training, TRADES, preprocessing defense 평가
-8. ⏳ 투명한 Robustness Score
-9. ⏳ 실험 비교와 artifact Dashboard
-10. ⏳ 이미지 평가와 분리된 LLM Security 확장 인터페이스/로드맵
-
-세부 완료 조건과 범위 경계는 [전체 로드맵](docs/roadmap.md), 현재 상태와 다음 세션의
-실행 순서는 [작업 인수인계](HANDOFF.md)에서 확인할 수 있습니다.
-
-## 관련 문서
-
-- [작업 인수인계](HANDOFF.md)
-- [아키텍처](docs/architecture.md)
-- [레지스트리 설계](docs/registry.md)
-- [실험 결과 스키마](docs/experiment-schema.md)
-- [재현성 정책](docs/reproducibility.md)
-- [위협 모델](docs/threat-model.md)
+- [Architecture](docs/architecture.md)
 - [API](docs/api.md)
-- [로드맵](docs/roadmap.md)
+- [Registry](docs/registry.md)
+- [Experiment result schema](docs/experiment-schema.md)
+- [Reproducibility policy](docs/reproducibility.md)
+- [Threat model](docs/threat-model.md)
+- [Roadmap](docs/roadmap.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
-## 라이선스
+## 📄 라이선스
 
-이 프로젝트는 [MIT License](LICENSE)로 배포됩니다.
+AIShield는 [MIT License](LICENSE)로 배포됩니다.

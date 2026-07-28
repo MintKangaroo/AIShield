@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "npm run check && vite build",
     "check": "tsc --noEmit --pretty false -p tsconfig.app.json && tsc --noEmit --pretty false -p tsconfig.node.json",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "screenshot": "node scripts/capture-dashboard.mjs"
   },
   "dependencies": {
     "react": "19.2.8",
@@ -17,6 +18,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.4",
+    "playwright": "1.61.1",
     "typescript": "7.0.2",
     "vite": "8.1.5"
   }

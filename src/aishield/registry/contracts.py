@@ -17,8 +17,9 @@ class RegistryModel(BaseModel):
 
 
 class DatasetName(StrEnum):
-    """Approved public dataset adapters in the first release."""
+    """Built-in generated and approved-public dataset adapters."""
 
+    SYNTHETIC = "synthetic"
     MNIST = "mnist"
     CIFAR10 = "cifar10"
 
@@ -44,7 +45,7 @@ class DatasetRecord(RegistryModel):
     name: DatasetName
     version: str = Field(min_length=1, max_length=128)
     split: DatasetSplit
-    source: Literal["approved_public"] = "approved_public"
+    source: Literal["approved_public", "generated"] = "approved_public"
     source_uri: str = Field(min_length=1)
     manifest_sha256: Sha256
     sample_count: int = Field(gt=0)
@@ -86,7 +87,7 @@ class ModelVersionRecord(RegistryModel):
 
 
 class EvaluationResult(RegistryModel):
-    """Basic model compatibility result; full clean baselines arrive in stage 3."""
+    """Legacy lightweight compatibility result without detailed baseline evidence."""
 
     model_version_id: UUID
     dataset_id: UUID

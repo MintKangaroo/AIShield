@@ -4,8 +4,15 @@ from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from aishield.attacks.contracts import AttackAlgorithm, AttackConfig, AttackRunRecord
+from aishield.evaluation.contracts import (
+    BaselineConfig,
+    BaselineRunRecord,
+    BaselineVerification,
+)
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -58,6 +65,32 @@ class EvaluationRequest(RequestModel):
     seed: int = Field(default=1729, ge=0, le=4_294_967_295)
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0)
+
+
+class CleanBaselineRequest(RequestModel):
+    """Run a complete clean baseline for retained registry entries."""
+
+    model_version_id: UUID
+    dataset_id: UUID
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=10_000_000)
+    warmup_batches: int = Field(default=1, ge=0, le=100)
+
+
+class AttackEvaluationRequest(RequestModel):
+    """Run one bounded first-order attack against registered inputs."""
+
+    model_version_id: UUID
+    dataset_id: UUID
+    algorithm: AttackAlgorithm
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
+    step_size: float | None = Field(default=None, gt=0.0, le=1.0)
+    iterations: int | None = Field(default=None, ge=1, le=100)
+    random_start: bool | None = None
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
 
 
 def get_registry(request: Request) -> RegistryService:
@@ -153,3 +186,145 @@ def evaluate(payload: EvaluationRequest, registry: RegistryDependency) -> Evalua
         )
     except (RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/baselines",
+    response_model=BaselineRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run a reproducible clean baseline",
+)
+def run_baseline(
+    payload: CleanBaselineRequest,
+    registry: RegistryDependency,
+) -> BaselineRunRecord:
+    try:
+        return registry.run_clean_baseline(
+            payload.model_version_id,
+            payload.dataset_id,
+            config=BaselineConfig(
+                seed=payload.seed,
+                batch_size=payload.batch_size,
+                max_samples=payload.max_samples,
+                warmup_batches=payload.warmup_batches,
+            ),
+        )
+    except (RegistryError, RegistryNotFoundError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/baselines",
+    response_model=list[BaselineRunRecord],
+    summary="List completed clean baselines",
+)
+def list_baselines(registry: RegistryDependency) -> list[BaselineRunRecord]:
+    return registry.list_baselines()
+
+
+@router.get(
+    "/baselines/{baseline_id}",
+    response_model=BaselineRunRecord,
+    summary="Get one clean baseline",
+)
+def get_baseline(baseline_id: UUID, registry: RegistryDependency) -> BaselineRunRecord:
+    try:
+        return registry.get_baseline(baseline_id)
+    except (RegistryError, RegistryNotFoundError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/baselines/{baseline_id}/verify",
+    response_model=BaselineVerification,
+    summary="Verify an exact-configuration baseline rerun",
+)
+def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> BaselineVerification:
+    try:
+        return registry.verify_clean_baseline(baseline_id)
+    except (RegistryError, RegistryNotFoundError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/attacks",
+    response_model=AttackRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run a bounded FGSM or PGD evaluation",
+)
+def run_attack(
+    payload: AttackEvaluationRequest,
+    registry: RegistryDependency,
+) -> AttackRunRecord:
+    is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
+    try:
+        config = AttackConfig(
+            algorithm=payload.algorithm,
+            epsilon=payload.epsilon,
+            step_size=(
+                payload.step_size
+                if payload.step_size is not None
+                else payload.epsilon
+                if is_fgsm
+                else payload.epsilon / 4
+            ),
+            iterations=(
+                payload.iterations if payload.iterations is not None else 1 if is_fgsm else 10
+            ),
+            random_start=(
+                payload.random_start if payload.random_start is not None else not is_fgsm
+            ),
+            seed=payload.seed,
+            batch_size=payload.batch_size,
+            max_samples=payload.max_samples,
+        )
+        return registry.run_attack(
+            payload.model_version_id,
+            payload.dataset_id,
+            config=config,
+        )
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/attacks",
+    response_model=list[AttackRunRecord],
+    summary="List completed adversarial evaluations",
+)
+def list_attacks(registry: RegistryDependency) -> list[AttackRunRecord]:
+    return registry.list_attacks()
+
+
+@router.get(
+    "/attacks/{attack_id}",
+    response_model=AttackRunRecord,
+    summary="Get one adversarial evaluation",
+)
+def get_attack(attack_id: UUID, registry: RegistryDependency) -> AttackRunRecord:
+    try:
+        return registry.get_attack(attack_id)
+    except (RegistryError, RegistryNotFoundError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/baselines/{baseline_id}/artifacts/{artifact_id}",
+    response_class=FileResponse,
+    summary="Download a baseline evidence artifact",
+)
+def download_baseline_artifact(
+    baseline_id: UUID,
+    artifact_id: UUID,
+    registry: RegistryDependency,
+) -> FileResponse:
+    try:
+        artifact, path = registry.get_baseline_artifact(baseline_id, artifact_id)
+    except (RegistryError, RegistryNotFoundError) as error:
+        raise _translate_registry_error(error) from error
+    return FileResponse(
+        path,
+        media_type=artifact.media_type,
+        filename=path.name,
+        headers={"ETag": f'"{artifact.sha256}"'},
+    )

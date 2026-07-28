@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import Dataset, TensorDataset
 
 from aishield.registry.contracts import DatasetName, DatasetSplit
-from aishield.registry.datasets import CIFAR10Adapter, MNISTAdapter
+from aishield.registry.datasets import CIFAR10Adapter, MNISTAdapter, SyntheticDatasetAdapter
 
 
 class FixtureMNISTAdapter(MNISTAdapter):
@@ -63,3 +63,23 @@ def test_cifar10_adapter_records_rgb_shape(tmp_path: Path) -> None:
     assert bundle.record.version == "cifar-10-python-v1"
     assert bundle.record.input_shape == (3, 32, 32)
     assert bundle.record.num_classes == 10
+
+
+def test_synthetic_adapter_is_deterministic_and_requires_no_download(tmp_path: Path) -> None:
+    adapter = SyntheticDatasetAdapter()
+
+    first = adapter.load(tmp_path, DatasetSplit.TEST, download=False)
+    second = adapter.load(tmp_path, DatasetSplit.TEST, download=False)
+    assert isinstance(first.dataset, TensorDataset)
+    assert isinstance(second.dataset, TensorDataset)
+    first_inputs, first_labels = first.dataset.tensors
+    second_inputs, second_labels = second.dataset.tensors
+
+    assert first.record == second.record
+    assert first.record.name is DatasetName.SYNTHETIC
+    assert first.record.source == "generated"
+    assert first.record.sample_count == 256
+    assert torch.equal(first_inputs, second_inputs)
+    assert torch.equal(first_labels, second_labels)
+    assert float(first_inputs.min()) >= 0.0
+    assert float(first_inputs.max()) <= 1.0

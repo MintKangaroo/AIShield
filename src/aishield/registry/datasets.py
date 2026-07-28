@@ -4,14 +4,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Sized
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, Final, Literal, cast
 from uuid import NAMESPACE_URL, uuid5
 
+import torch
 import torchvision
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets, transforms
 
 from aishield.registry.contracts import DatasetName, DatasetRecord, DatasetSplit
+from aishield.registry.errors import RegistryError
 from aishield.registry.reproducibility import sha256_directory_manifest
 
 
@@ -29,6 +31,7 @@ class TorchvisionDatasetAdapter(ABC):
     name: DatasetName
     version: str
     source_uri: str
+    source: Literal["approved_public", "generated"] = "approved_public"
     input_shape: tuple[int, int, int]
     num_classes: Final = 10
 
@@ -45,6 +48,7 @@ class TorchvisionDatasetAdapter(ABC):
             name=self.name,
             version=self.version,
             split=split,
+            source=self.source,
             source_uri=self.source_uri,
             manifest_sha256=manifest_sha256,
             sample_count=len(cast(Sized, dataset)),
@@ -78,6 +82,59 @@ class MNISTAdapter(TorchvisionDatasetAdapter):
                 download=download,
             ),
         )
+
+
+class SyntheticDatasetAdapter(TorchvisionDatasetAdapter):
+    """Generate a deterministic, zero-download dataset for product evaluation."""
+
+    name = DatasetName.SYNTHETIC
+    version = "signal-10-v1"
+    source_uri = "aishield://generated/signal-10"
+    source = "generated"
+    input_shape = (1, 28, 28)
+
+    def _create_dataset(self, root: Path, split: DatasetSplit, *, download: bool) -> Dataset[Any]:
+        if download:
+            raise RegistryError(
+                "the synthetic dataset is generated locally and cannot be downloaded"
+            )
+
+        seed = 1729 if split is DatasetSplit.TRAIN else 1730
+        sample_count = 1024 if split is DatasetSplit.TRAIN else 256
+        generator = torch.Generator().manual_seed(seed)
+        labels = torch.arange(sample_count, dtype=torch.long) % self.num_classes
+        inputs = (
+            torch.rand(
+                (sample_count, *self.input_shape),
+                generator=generator,
+                dtype=torch.float32,
+            )
+            * 0.08
+        )
+
+        # Each class owns a stable bright patch. The signal makes this dataset useful for
+        # exercising training/evaluation pipelines without pretending it is a benchmark.
+        for class_index in range(self.num_classes):
+            row = 3 + (class_index // 5) * 13
+            column = 2 + (class_index % 5) * 5
+            inputs[labels == class_index, 0, row : row + 7, column : column + 4] += 0.88
+        inputs.clamp_(0.0, 1.0)
+
+        manifest = root / f"{split.value}.signal-10.txt"
+        manifest.write_text(
+            "\n".join(
+                (
+                    f"version={self.version}",
+                    f"split={split.value}",
+                    f"seed={seed}",
+                    f"samples={sample_count}",
+                    "license=generated-for-aishield-demo",
+                )
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return cast(Dataset[Any], TensorDataset(inputs, labels))
 
 
 class CIFAR10Adapter(TorchvisionDatasetAdapter):
