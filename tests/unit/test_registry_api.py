@@ -219,6 +219,30 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert defense["metrics"]["evaluated_samples"] == 3
         assert len(client.get("/api/v1/registry/defenses").json()) == 1
 
+        training_response = client.post(
+            "/api/v1/registry/training",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "strategy": "trades",
+                "epochs": 1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "epsilon": 0.1,
+                "step_size": 0.05,
+                "attack_iterations": 1,
+                "learning_rate": 0.001,
+                "trades_beta": 2.0,
+                "seed": 1729,
+            },
+        )
+        assert training_response.status_code == 201
+        training = training_response.json()
+        assert training["config"]["strategy"] == "trades"
+        assert training["metrics"]["training_samples"] == 3
+        assert len(training["model_state_sha256"]) == 64
+        assert len(client.get("/api/v1/registry/training").json()) == 1
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(

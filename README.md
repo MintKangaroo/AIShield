@@ -46,8 +46,10 @@ flowchart LR
     API --> REG["1 · Registry<br/>dataset + model identity"]
     REG --> BASE["2 · Clean baseline<br/>accuracy · loss · matrix"]
     BASE --> ATTACK["3 · Bounded attack<br/>FGSM · BIM · PGD · DeepFool · CW · AutoAttack"]
+    REG --> TRAIN["Defense training<br/>Adversarial · TRADES"]
     BASE --> COMPARE["4 · Paired metrics"]
     ATTACK --> COMPARE
+    TRAIN --> EVIDENCE
     COMPARE --> EVIDENCE[("5 · Evidence bundle<br/>JSON · PNG · SHA-256")]
     EVIDENCE --> VERIFY["6 · Exact rerun<br/>8 deterministic checks"]
     VERIFY -.->|"compare evidence"| COMPARE
@@ -95,13 +97,14 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 | DeepFool / CW | bounded untargeted L2 boundary·margin optimization with paired metrics | ✅ |
 | AutoAttack adapter | deterministic FGSM/BIM/PGD ensemble, worst-margin selection | ✅ |
 | Defense evaluation | bit-depth preprocessing before/after + adaptive attack metrics | ✅ |
+| Adversarial training | copied-model adversarial training/TRADES, checkpoint hash, final robust metrics | ✅ |
 | Evidence | JSON report, confusion matrix PNG, SHA-256, 안전한 다운로드 API | ✅ |
 | Dashboard | 등록·실행·비교·검증·artifact 다운로드를 지원하는 React console | ✅ |
 | API | strict request contract, OpenAPI/Swagger/ReDoc, 404/정책 오류 변환 | ✅ |
 | 품질 게이트 | Ruff, mypy strict, pytest, 90% coverage, TypeScript, Docker smoke | ✅ |
 | 추가 공격·방어 | standard APGD/FAB/Square, adaptive/transfer defense 평가 | 🧭 |
 
-AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack-style ensemble 연구
+AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack-style ensemble + bit-depth defense + adversarial training/TRADES 연구
 MVP**입니다. 추가 공격과 방어를 구현하기 전에는 두 공격의 결과만으로 일반적인 강건성을
 주장하지 않습니다.
 

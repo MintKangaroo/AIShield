@@ -27,7 +27,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
 
 8. **Defense evaluation** *(in progress)*
    - ✅ bit-depth preprocessing defense baseline with before/after/adaptive metrics
-   - adversarial training and TRADES checkpoint adapters
+   - ✅ adversarial training and TRADES checkpoint adapters with hashed evidence
    - transfer attack and defense-aware adaptive reevaluation
    - iterative-vs-single-step and black-box-vs-white-box masking diagnostics
 

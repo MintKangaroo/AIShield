@@ -32,7 +32,7 @@ export interface ModelVersionRecord {
   id: string;
   name: string;
   version: string;
-  source: "small_cnn" | "torchvision";
+  source: "small_cnn" | "torchvision" | "trained";
   framework: "pytorch";
   framework_version: string;
   torchvision_version: string | null;
@@ -182,4 +182,54 @@ export interface AttackRequest {
   seed: number;
   batch_size: number;
   max_samples: number | null;
+}
+
+export type TrainingStrategy = "adversarial_training" | "trades";
+
+export interface TrainingRunRecord {
+  id: string;
+  created_at: string;
+  source_model_version_id: string;
+  trained_model_version_id: string;
+  dataset_id: string;
+  dataset_manifest_sha256: string;
+  config: {
+    strategy: TrainingStrategy;
+    seed: number;
+    epochs: number;
+    batch_size: number;
+    max_samples: number | null;
+    epsilon: number;
+    step_size: number;
+    attack_iterations: number;
+    learning_rate: number;
+    trades_beta: number;
+    num_workers: 0;
+  };
+  model_state_sha256: string;
+  artifact: ModelArtifactRecord;
+  environment: BaselineRunRecord["environment"];
+  metrics: {
+    epochs_completed: number;
+    training_samples: number;
+    final_training_loss: number;
+    final_clean_accuracy: number;
+    final_robust_accuracy: number;
+    final_attack_success_rate: number;
+  };
+}
+
+export interface TrainingRequest {
+  model_version_id: string;
+  dataset_id: string;
+  strategy: TrainingStrategy;
+  seed: number;
+  epochs: number;
+  batch_size: number;
+  max_samples: number | null;
+  epsilon: number;
+  step_size: number;
+  attack_iterations: number;
+  learning_rate: number;
+  trades_beta: number;
 }

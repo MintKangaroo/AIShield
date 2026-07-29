@@ -36,6 +36,7 @@ class ModelSource(StrEnum):
 
     SMALL_CNN = "small_cnn"
     TORCHVISION = "torchvision"
+    TRAINED = "trained"
 
 
 class DatasetRecord(RegistryModel):

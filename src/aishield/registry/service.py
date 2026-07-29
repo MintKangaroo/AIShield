@@ -35,6 +35,8 @@ from aishield.registry.datasets import (
 from aishield.registry.errors import RegistryError, RegistryNotFoundError
 from aishield.registry.evaluation import evaluate_registered_model
 from aishield.registry.models import ModelBundle, SmallCNNAdapter, TorchvisionPretrainedAdapter
+from aishield.training.contracts import TrainingConfig, TrainingRunRecord
+from aishield.training.runner import train_model
 
 
 class RegistryService:
@@ -59,6 +61,7 @@ class RegistryService:
         self._baselines: dict[UUID, BaselineRunRecord] = {}
         self._attacks: dict[UUID, AttackRunRecord] = {}
         self._defenses: dict[UUID, DefenseRunRecord] = {}
+        self._training: dict[UUID, TrainingRunRecord] = {}
         self._lock = RLock()
 
     def load_dataset(
@@ -236,6 +239,32 @@ class RegistryService:
 
         with self._lock:
             return [self._defenses[key] for key in sorted(self._defenses, key=str)]
+
+    def train_model(
+        self,
+        model_id: UUID,
+        dataset_id: UUID,
+        *,
+        config: TrainingConfig,
+    ) -> tuple[ModelVersionRecord, TrainingRunRecord, ModelBundle]:
+        """Train a copied model and retain its runtime bundle and evidence."""
+
+        bundle, record = train_model(
+            self.get_model_bundle(model_id),
+            self.get_dataset_bundle(dataset_id),
+            artifact_root=self.settings.artifact_root,
+            config=config,
+        )
+        with self._lock:
+            self._models[bundle.record.id] = bundle
+            self._training[record.id] = record
+        return bundle.record, record, bundle
+
+    def list_training(self) -> list[TrainingRunRecord]:
+        """List completed training runs in deterministic ID order."""
+
+        with self._lock:
+            return [self._training[key] for key in sorted(self._training, key=str)]
 
     def get_baseline(self, baseline_id: UUID) -> BaselineRunRecord:
         """Return a completed baseline or raise a domain-level not-found error."""

@@ -7,6 +7,8 @@ import type {
   DatasetRecord,
   HealthResponse,
   ModelVersionRecord,
+  TrainingRequest,
+  TrainingRunRecord,
 } from "./types";
 
 const registryPath = "/api/v1/registry";
@@ -48,6 +50,7 @@ export const api = {
   models: () => request<ModelVersionRecord[]>(`${registryPath}/models`),
   baselines: () => request<BaselineRunRecord[]>(`${registryPath}/baselines`),
   attacks: () => request<AttackRunRecord[]>(`${registryPath}/attacks`),
+  training: () => request<TrainingRunRecord[]>(`${registryPath}/training`),
   loadDataset: (payload: {
     name: DatasetRecord["name"];
     split: DatasetRecord["split"];
@@ -59,6 +62,8 @@ export const api = {
     post<BaselineRunRecord>(`${registryPath}/baselines`, payload),
   runAttack: (payload: AttackRequest) =>
     post<AttackRunRecord>(`${registryPath}/attacks`, payload),
+  runTraining: (payload: TrainingRequest) =>
+    post<TrainingRunRecord>(`${registryPath}/training`, payload),
   verifyBaseline: (baselineId: string) =>
     post<BaselineVerification>(`${registryPath}/baselines/${baselineId}/verify`),
   artifactUrl: (baselineId: string, artifactId: string) =>

@@ -28,6 +28,8 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `GET` | `/api/v1/registry/attacks/{id}` | Attack run evidence |
 | `POST` | `/api/v1/registry/defenses` | Before/after preprocessing-defense evaluation |
 | `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
+| `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |
+| `GET` | `/api/v1/registry/training` | Training evidence list |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
@@ -97,6 +99,14 @@ gradient status를 포함합니다. 입력 gradient가 모두 0이면 run은 실
 방어 전/후 clean accuracy, robust accuracy, attack success rate와 adaptive gradient 상태를
 함께 기록합니다. 양자화는 비미분 연산이므로 adaptive gradient가 flat이면 강건성 증거가
 아니라 gradient-masking 경고로 해석해야 합니다.
+
+## Training contract
+
+`POST /registry/training`은 원본 model bundle을 복제한 뒤 `adversarial_training` 또는
+`trades` 목적함수로 CPU-safe 학습을 수행합니다. 원본 checkpoint는 변경하지 않으며,
+학습 checkpoint의 state SHA-256, dataset manifest, 환경 snapshot과 최종 clean/PGD
+robust metric을 `TrainingRunRecord`로 보존합니다. `step_size`는 `epsilon`보다 클 수
+없고, `max_samples`로 데모·CI 실행 규모를 제한할 수 있습니다.
 
 ## Runtime boundary
 

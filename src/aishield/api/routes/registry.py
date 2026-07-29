@@ -23,6 +23,7 @@ from aishield.registry.contracts import (
 )
 from aishield.registry.errors import RegistryError, RegistryNotFoundError
 from aishield.registry.service import RegistryService
+from aishield.training.contracts import TrainingConfig, TrainingRunRecord, TrainingStrategy
 
 router = APIRouter(prefix="/registry", tags=["registry"])
 
@@ -109,6 +110,23 @@ class DefenseEvaluationRequest(RequestModel):
     seed: int = Field(default=1729, ge=0, le=4_294_967_295)
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
+
+
+class TrainingRequest(RequestModel):
+    """Train a copied registered model with adversarial training or TRADES."""
+
+    model_version_id: UUID
+    dataset_id: UUID
+    strategy: TrainingStrategy
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    epochs: int = Field(default=1, ge=1, le=100)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
+    step_size: float = Field(default=2 / 255, gt=0.0, le=1.0)
+    attack_iterations: int = Field(default=2, ge=1, le=20)
+    learning_rate: float = Field(default=1e-3, gt=0.0, le=1.0)
+    trades_beta: float = Field(default=6.0, ge=0.0, le=100.0)
 
 
 def get_registry(request: Request) -> RegistryService:
@@ -410,6 +428,47 @@ def run_defense(
 )
 def list_defenses(registry: RegistryDependency) -> list[DefenseRunRecord]:
     return registry.list_defenses()
+
+
+@router.post(
+    "/training",
+    response_model=TrainingRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Train a registered model with adversarial training or TRADES",
+)
+def train_registered_model(
+    payload: TrainingRequest,
+    registry: RegistryDependency,
+) -> TrainingRunRecord:
+    try:
+        _, record, _ = registry.train_model(
+            payload.model_version_id,
+            payload.dataset_id,
+            config=TrainingConfig(
+                strategy=payload.strategy,
+                seed=payload.seed,
+                epochs=payload.epochs,
+                batch_size=payload.batch_size,
+                max_samples=payload.max_samples,
+                epsilon=payload.epsilon,
+                step_size=payload.step_size,
+                attack_iterations=payload.attack_iterations,
+                learning_rate=payload.learning_rate,
+                trades_beta=payload.trades_beta,
+            ),
+        )
+        return record
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/training",
+    response_model=list[TrainingRunRecord],
+    summary="List completed robust-training runs",
+)
+def list_training(registry: RegistryDependency) -> list[TrainingRunRecord]:
+    return registry.list_training()
 
 
 @router.get(
