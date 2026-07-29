@@ -251,7 +251,7 @@ def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> Baseline
     "/attacks",
     response_model=AttackRunRecord,
     status_code=status.HTTP_201_CREATED,
-    summary="Run a bounded FGSM, BIM, PGD, or DeepFool evaluation",
+    summary="Run a bounded FGSM, BIM, PGD, DeepFool, or Carlini-Wagner evaluation",
 )
 def run_attack(
     payload: AttackEvaluationRequest,
@@ -260,10 +260,11 @@ def run_attack(
     is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
     is_bim = payload.algorithm is AttackAlgorithm.BIM
     is_deepfool = payload.algorithm is AttackAlgorithm.DEEPFOOL
+    is_cw = payload.algorithm is AttackAlgorithm.CARLINI_WAGNER
     try:
         config = AttackConfig(
             algorithm=payload.algorithm,
-            norm=payload.norm or ("l2" if is_deepfool else "linf"),
+            norm=payload.norm or ("l2" if is_deepfool or is_cw else "linf"),
             epsilon=payload.epsilon,
             step_size=(
                 payload.step_size
@@ -271,7 +272,7 @@ def run_attack(
                 else payload.epsilon
                 if is_fgsm
                 else payload.epsilon
-                if is_deepfool
+                if is_deepfool or is_cw
                 else payload.epsilon / 4
             ),
             iterations=(
@@ -281,6 +282,8 @@ def run_attack(
                 if is_fgsm
                 else 20
                 if is_deepfool
+                else 50
+                if is_cw
                 else 10
             ),
             random_start=(
@@ -290,6 +293,8 @@ def run_attack(
                 if is_bim
                 else False
                 if is_deepfool
+                else False
+                if is_cw
                 else not is_fgsm
             ),
             seed=payload.seed,

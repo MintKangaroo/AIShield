@@ -17,6 +17,7 @@ class AttackAlgorithm(StrEnum):
     BIM = "bim"
     PGD = "pgd"
     DEEPFOOL = "deepfool"
+    CARLINI_WAGNER = "cw"
 
 
 class AttackConfig(RegistryModel):
@@ -47,10 +48,13 @@ class AttackConfig(RegistryModel):
             )
         if self.algorithm is AttackAlgorithm.BIM and self.random_start:
             raise ValueError("BIM requires random_start=false; use PGD for randomized starts")
-        if self.algorithm is AttackAlgorithm.DEEPFOOL and self.norm != "l2":
-            raise ValueError("DeepFool requires norm=l2")
-        if self.algorithm is not AttackAlgorithm.DEEPFOOL and self.norm != "linf":
+        if self.algorithm in (AttackAlgorithm.DEEPFOOL, AttackAlgorithm.CARLINI_WAGNER):
+            if self.norm != "l2":
+                raise ValueError("DeepFool and Carlini-Wagner require norm=l2")
+        elif self.norm != "linf":
             raise ValueError("FGSM, BIM, and PGD require norm=linf")
+        if self.algorithm is AttackAlgorithm.CARLINI_WAGNER and self.random_start:
+            raise ValueError("Carlini-Wagner requires random_start=false")
         return self
 
 

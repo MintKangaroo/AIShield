@@ -162,6 +162,59 @@ def _deepfool_batch(
     return adversarial, saw_nonzero_gradient
 
 
+def _cw_batch(
+    clean_inputs: Tensor,
+    targets: Tensor,
+    model_bundle: ModelBundle,
+    config: AttackConfig,
+) -> tuple[Tensor, bool]:
+    """Run a bounded Carlini-Wagner-style L2 optimization."""
+
+    delta = torch.zeros_like(clean_inputs, requires_grad=True)
+    optimizer = torch.optim.Adam([delta], lr=max(config.step_size, 1e-4))
+    saw_nonzero_gradient = False
+    best_adversarial = clean_inputs.clone()
+    best_norm = torch.full((clean_inputs.shape[0],), float("inf"), device=clean_inputs.device)
+
+    for _ in range(config.iterations):
+        adversarial = (clean_inputs + delta).clamp(0.0, 1.0)
+        logits = cast(Tensor, model_bundle.model(model_bundle.preprocess(adversarial)))
+        target_logits = logits.gather(1, targets.unsqueeze(1)).squeeze(1)
+        other_logits = logits.clone()
+        other_logits.scatter_(1, targets.unsqueeze(1), float("-inf"))
+        margin = target_logits - other_logits.max(dim=1).values
+        l2_squared = delta.flatten(start_dim=1).pow(2).sum(dim=1)
+        loss = l2_squared.mean() + 10.0 * torch.relu(margin + 1e-3).mean()
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()  # type: ignore[no-untyped-call]
+        if delta.grad is None or not torch.isfinite(delta.grad).all():
+            raise RegistryError("Carlini-Wagner gradient contains a non-finite value")
+        saw_nonzero_gradient = saw_nonzero_gradient or bool(torch.count_nonzero(delta.grad).item())
+        optimizer.step()
+        with torch.no_grad():
+            current_delta = (clean_inputs + delta).clamp(0.0, 1.0) - clean_inputs
+            norms = current_delta.flatten(start_dim=1).norm(p=2, dim=1)
+            scale = torch.clamp(config.epsilon / norms.clamp_min(1e-12), max=1.0)
+            delta.copy_(current_delta * scale.view(-1, 1, 1, 1))
+            predictions = cast(
+                Tensor, model_bundle.model(model_bundle.preprocess(clean_inputs + delta))
+            ).argmax(dim=1)
+            successful = predictions != targets
+            improved = successful & (norms < best_norm)
+            best_adversarial[improved] = (clean_inputs + delta)[improved]
+            best_norm[improved] = norms[improved]
+
+    adversarial = torch.where(
+        torch.isfinite(best_norm).view(-1, 1, 1, 1),
+        best_adversarial,
+        (clean_inputs + delta).clamp(0.0, 1.0),
+    )
+    observed_l2 = (adversarial - clean_inputs).flatten(start_dim=1).norm(p=2, dim=1).max()
+    if float(observed_l2.item()) > config.epsilon + BOUND_TOLERANCE:
+        raise RegistryError("generated Carlini-Wagner input exceeded the configured L2 bound")
+    return adversarial.detach(), saw_nonzero_gradient
+
+
 def run_adversarial_evaluation(
     model_bundle: ModelBundle,
     dataset_bundle: DatasetBundle,
@@ -219,6 +272,13 @@ def run_adversarial_evaluation(
 
         if config.algorithm.value == "deepfool":
             adversarial, batch_has_gradient = _deepfool_batch(
+                clean_inputs,
+                targets,
+                model_bundle,
+                config,
+            )
+        elif config.algorithm.value == "cw":
+            adversarial, batch_has_gradient = _cw_batch(
                 clean_inputs,
                 targets,
                 model_bundle,
