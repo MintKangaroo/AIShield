@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from aishield.attacks.contracts import AttackAlgorithm, AttackConfig, AttackRunRecord
+from aishield.defenses.contracts import DefenseConfig, DefenseKind, DefenseRunRecord
 from aishield.evaluation.contracts import (
     BaselineConfig,
     BaselineRunRecord,
@@ -89,6 +90,22 @@ class AttackEvaluationRequest(RequestModel):
     step_size: float | None = Field(default=None, gt=0.0, le=1.0)
     iterations: int | None = Field(default=None, ge=1, le=100)
     random_start: bool | None = None
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
+
+
+class DefenseEvaluationRequest(RequestModel):
+    """Run a preprocessing defense before and after adaptive evaluation."""
+
+    model_version_id: UUID
+    dataset_id: UUID
+    defense: DefenseKind = DefenseKind.BIT_DEPTH
+    bit_depth: int = Field(default=4, ge=1, le=8)
+    attack_algorithm: AttackAlgorithm = AttackAlgorithm.PGD
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
+    step_size: float | None = Field(default=None, gt=0.0, le=1.0)
+    iterations: int | None = Field(default=None, ge=1, le=100)
     seed: int = Field(default=1729, ge=0, le=4_294_967_295)
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
@@ -332,6 +349,67 @@ def get_attack(attack_id: UUID, registry: RegistryDependency) -> AttackRunRecord
         return registry.get_attack(attack_id)
     except (RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/defenses",
+    response_model=DefenseRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Evaluate a preprocessing defense before and after adaptive attack",
+)
+def run_defense(
+    payload: DefenseEvaluationRequest,
+    registry: RegistryDependency,
+) -> DefenseRunRecord:
+    is_fgsm = payload.attack_algorithm is AttackAlgorithm.FGSM
+    is_deepfool = payload.attack_algorithm is AttackAlgorithm.DEEPFOOL
+    is_cw = payload.attack_algorithm is AttackAlgorithm.CARLINI_WAGNER
+    is_autoattack = payload.attack_algorithm is AttackAlgorithm.AUTOATTACK
+    try:
+        attack = AttackConfig(
+            algorithm=payload.attack_algorithm,
+            norm="l2" if is_deepfool or is_cw else "linf",
+            epsilon=payload.epsilon,
+            step_size=(
+                payload.step_size
+                if payload.step_size is not None
+                else payload.epsilon
+                if is_fgsm or is_deepfool or is_cw
+                else payload.epsilon / 4
+            ),
+            iterations=(
+                payload.iterations
+                if payload.iterations is not None
+                else 1
+                if is_fgsm
+                else 20
+                if is_deepfool
+                else 50
+                if is_cw
+                else 10
+            ),
+            random_start=not (is_fgsm or is_deepfool or is_cw or is_autoattack),
+            seed=payload.seed,
+            batch_size=payload.batch_size,
+            max_samples=payload.max_samples,
+        )
+        return registry.run_defense(
+            payload.model_version_id,
+            payload.dataset_id,
+            defense=DefenseConfig(kind=payload.defense, bit_depth=payload.bit_depth),
+            attack=attack,
+        )
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/defenses",
+    response_model=list[DefenseRunRecord],
+    summary="List completed defense evaluations",
+)
+def list_defenses(registry: RegistryDependency) -> list[DefenseRunRecord]:
+    return registry.list_defenses()
 
 
 @router.get(

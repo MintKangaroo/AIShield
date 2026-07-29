@@ -47,3 +47,5 @@ sample caps, clean accuracy, and loss. The full baseline adds confusion matrix, 
 latency, environment evidence, artifacts, and exact-config reruns. The attack registry retains
 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack records with paired clean/robust metrics, raw attack counts, prediction
 fingerprints, and gradient-health warnings.
+The defense registry compares bit-depth preprocessing before and after the same adaptive attack,
+including clean/robust accuracy, attack success rate, and gradient-masking warnings.

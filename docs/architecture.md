@@ -15,6 +15,8 @@ Browser
                           ├─> Model adapters
                           ├─> Clean baseline engine ─> JSON / PNG artifacts
                           └─> FGSM / BIM / PGD / DeepFool / CW / AutoAttack engine ─> paired attack evidence
+    REG --> DEFENSE["Bit-depth defense<br/>before / after / adaptive"]
+    DEFENSE --> EVIDENCE
 
 PostgreSQL ─ metadata persistence boundary (future)
 Redis      ─ isolated worker boundary (future)

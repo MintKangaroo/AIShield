@@ -9,6 +9,8 @@ from torch.utils.data import TensorDataset
 
 from aishield.attacks.contracts import AttackAlgorithm, AttackConfig
 from aishield.attacks.runner import run_adversarial_evaluation
+from aishield.defenses.contracts import DefenseConfig, DefenseKind
+from aishield.defenses.runner import run_defense_evaluation
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -245,6 +247,32 @@ def test_autoattack_ensemble_reports_linf_bound(tmp_path: Path) -> None:
     assert result.config.norm == "linf"
     assert result.metrics.maximum_observed_linf <= 0.5 + 1e-6
     assert result.metrics.gradient_status == "healthy"
+
+
+def test_bit_depth_defense_reports_before_after_metrics(tmp_path: Path) -> None:
+    model, dataset = attack_bundles(tmp_path)
+
+    result = run_defense_evaluation(
+        model,
+        dataset,
+        defense=DefenseConfig(kind=DefenseKind.BIT_DEPTH, bit_depth=2),
+        attack=AttackConfig(
+            algorithm=AttackAlgorithm.PGD,
+            epsilon=0.5,
+            step_size=0.25,
+            iterations=2,
+            random_start=False,
+            seed=1729,
+            batch_size=2,
+            max_samples=4,
+        ),
+    )
+
+    assert result.defense.kind is DefenseKind.BIT_DEPTH
+    assert result.metrics.evaluated_samples == 4
+    assert 0.0 <= result.metrics.clean_accuracy_after <= 1.0
+    assert result.metrics.adaptive_gradient_status in {"healthy", "flat"}
+    assert "non-differentiable" in result.warnings[-1]
 
 
 def test_attack_rejects_inputs_outside_unit_interval(tmp_path: Path) -> None:

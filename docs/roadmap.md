@@ -25,9 +25,9 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - epsilon/iteration strength curves and multiple restarts
    - algorithm별 independent numerical fixtures
 
-8. **Defense evaluation**
+8. **Defense evaluation** *(in progress)*
+   - ✅ bit-depth preprocessing defense baseline with before/after/adaptive metrics
    - adversarial training and TRADES checkpoint adapters
-   - preprocessing defense baseline
    - transfer attack and defense-aware adaptive reevaluation
    - iterative-vs-single-step and black-box-vs-white-box masking diagnostics
 

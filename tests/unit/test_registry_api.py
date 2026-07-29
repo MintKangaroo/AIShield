@@ -199,6 +199,26 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert autoattack["metrics"]["maximum_observed_linf"] <= 0.1 + 1e-6
         assert len(client.get("/api/v1/registry/attacks").json()) == 5
 
+        defense_response = client.post(
+            "/api/v1/registry/defenses",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "defense": "bit_depth",
+                "bit_depth": 2,
+                "attack_algorithm": "pgd",
+                "epsilon": 0.1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert defense_response.status_code == 201
+        defense = defense_response.json()
+        assert defense["defense"]["kind"] == "bit_depth"
+        assert defense["metrics"]["evaluated_samples"] == 3
+        assert len(client.get("/api/v1/registry/defenses").json()) == 1
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(

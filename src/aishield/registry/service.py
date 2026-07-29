@@ -9,6 +9,8 @@ from uuid import UUID
 from aishield.attacks.contracts import AttackConfig, AttackRunRecord
 from aishield.attacks.runner import run_adversarial_evaluation
 from aishield.core.config import Settings
+from aishield.defenses.contracts import DefenseConfig, DefenseRunRecord
+from aishield.defenses.runner import run_defense_evaluation
 from aishield.evaluation.contracts import (
     BaselineArtifact,
     BaselineConfig,
@@ -56,6 +58,7 @@ class RegistryService:
         self._models: dict[UUID, ModelBundle] = {}
         self._baselines: dict[UUID, BaselineRunRecord] = {}
         self._attacks: dict[UUID, AttackRunRecord] = {}
+        self._defenses: dict[UUID, DefenseRunRecord] = {}
         self._lock = RLock()
 
     def load_dataset(
@@ -184,6 +187,26 @@ class RegistryService:
             self._attacks[record.id] = record
         return record
 
+    def run_defense(
+        self,
+        model_id: UUID,
+        dataset_id: UUID,
+        *,
+        defense: DefenseConfig,
+        attack: AttackConfig,
+    ) -> DefenseRunRecord:
+        """Run and retain a before/after adaptive-defense evaluation."""
+
+        record = run_defense_evaluation(
+            self.get_model_bundle(model_id),
+            self.get_dataset_bundle(dataset_id),
+            defense=defense,
+            attack=attack,
+        )
+        with self._lock:
+            self._defenses[record.id] = record
+        return record
+
     def list_datasets(self) -> list[DatasetRecord]:
         """List loaded dataset records in deterministic ID order."""
 
@@ -207,6 +230,12 @@ class RegistryService:
 
         with self._lock:
             return [self._attacks[key] for key in sorted(self._attacks, key=str)]
+
+    def list_defenses(self) -> list[DefenseRunRecord]:
+        """List completed defense evaluations in deterministic ID order."""
+
+        with self._lock:
+            return [self._defenses[key] for key in sorted(self._defenses, key=str)]
 
     def get_baseline(self, baseline_id: UUID) -> BaselineRunRecord:
         """Return a completed baseline or raise a domain-level not-found error."""

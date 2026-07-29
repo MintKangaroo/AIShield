@@ -26,6 +26,8 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/attacks` | Bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack run |
 | `GET` | `/api/v1/registry/attacks` | Attack run list |
 | `GET` | `/api/v1/registry/attacks/{id}` | Attack run evidence |
+| `POST` | `/api/v1/registry/defenses` | Before/after preprocessing-defense evaluation |
+| `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
@@ -87,6 +89,14 @@ ensemble로 각 표본의 최악 margin을 선택합니다. 표준 APGD/FAB/Squa
 attack success rate, raw counts, maximum observed L∞/L2, clean/adversarial prediction fingerprints,
 gradient status를 포함합니다. 입력 gradient가 모두 0이면 run은 실패로 꾸며지지 않고
 `gradient_status="flat"`과 warning을 반환합니다.
+
+## Defense contract
+
+`POST /registry/defenses`는 현재 `bit_depth` 전처리 방어를 지원합니다. `bit_depth=4`는
+입력을 16단계로 양자화한 뒤 원래 model preprocessing을 적용합니다. 응답은 같은 표본에서
+방어 전/후 clean accuracy, robust accuracy, attack success rate와 adaptive gradient 상태를
+함께 기록합니다. 양자화는 비미분 연산이므로 adaptive gradient가 flat이면 강건성 증거가
+아니라 gradient-masking 경고로 해석해야 합니다.
 
 ## Runtime boundary
 
