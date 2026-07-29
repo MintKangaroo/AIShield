@@ -1,12 +1,13 @@
 # AIShield 작업 인수인계
 
-마지막 갱신일: 2026-07-28
+마지막 갱신일: 2026-07-30
 
 ## 현재 브랜치와 범위
 
-- 작업 브랜치: `feat/clean-baseline`
-- 안정 기준: reproducible clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack + functional dashboard
-- Registry/run index: API process memory
+- 작업 브랜치: `develop`
+- 최신 커밋: `a0dcb19 feat: add bounded background training jobs`
+- 안정 기준: reproducible clean baseline + bounded attacks/defenses + dashboard + evidence API
+- Registry/run index: API process memory, metadata는 append-only journal에도 기록
 - Dataset/model/baseline artifact: configured local directory 또는 Docker volume
 - 공개 download: 기본 거부
 
@@ -22,6 +23,11 @@
 - bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack, paired metrics, norm verification, gradient warning
 - dataset/model/baseline/attack/artifact를 조작하는 React dashboard
 - 실제 API run을 사용한 README screenshots와 screenshot automation
+- adversarial training/TRADES, hashed checkpoint evidence
+- APGD/FAB/Square bounded compatibility adapters와 epsilon strength curve/restarts
+- robustness score API, surrogate-to-target transfer diagnostics
+- `/registry/journal` metadata audit API
+- bounded background training queue와 job status API
 
 ## 검증 기준
 
@@ -38,6 +44,9 @@ npm --prefix web run build
 docker compose config --quiet
 docker compose --profile gpu config --quiet
 ```
+
+최근 검증 결과: backend `56 passed`, coverage `93.90%`, Ruff/mypy 통과. Frontend는
+`npm --prefix web run build`로 TypeScript와 Vite production build를 검증합니다.
 
 Docker CPU smoke는 dashboard, API, `/api` proxy health를 확인합니다. Zero-download product
 smoke는 Dashboard의 `Launch zero-download demo`로 dataset → model → baseline → FGSM을
@@ -57,16 +66,31 @@ smoke는 Dashboard의 `Launch zero-download demo`로 dataset → model → basel
 - 모든 attack input은 finite `[0,1]` tensor여야 하며 projection 후 observed L∞를 검사합니다.
 - Flat gradient는 성공이 아니라 masking warning입니다.
 - Synthetic dataset과 untrained SmallCNN 결과는 security benchmark가 아닙니다.
-- PostgreSQL/Redis는 아직 persistence/worker 구현이 아니며 문서에서도 future boundary로
-  표시합니다.
+- `<artifact_root>/registry/journal.jsonl`은 canonical JSON metadata를 즉시 append/flush합니다.
+- `POST /api/v1/registry/training/jobs`는 bounded in-process worker로 비동기 학습을 실행합니다.
+- `GET /api/v1/registry/jobs/{id}`에서 queued/running/succeeded/failed 상태를 조회합니다.
+- PostgreSQL/Redis Compose 서비스와 설정은 준비되어 있지만 실제 repository/Redis adapter는
+  아직 연결하지 않았습니다. 현재 queue/journal은 교체 가능한 경계 구현입니다.
 
 ## 다음 작업 우선순위
 
-1. PostgreSQL run/registry persistence와 restart recovery
-2. Redis-backed resource-isolated evaluation worker
-3. BIM/DeepFool/CW/AutoAttack 및 strength curve
-4. transfer/adaptive attack과 defense evaluation
-5. raw metric을 유지하는 versioned robustness score
+1. PostgreSQL repository와 journal replay 기반 restart recovery
+2. Redis-backed resource-isolated evaluation worker 및 CPU/CUDA image pinning
+3. strength curve/run-to-run 비교와 sample triplet dashboard UI
+4. black-box/white-box masking diagnostics 및 independent numerical fixtures
+5. portable experiment export/import
 
 세부 범위는 `docs/roadmap.md`를 기준으로 합니다. 새 기능은 numerical unit test, API
 contract test, strict typing, README/API 문서 갱신을 함께 완료해야 합니다.
+
+## 다음 세션 시작 명령
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+git status --short --branch
+docker compose config --quiet
+```
+
+작업 후에는 Docker backend 품질 게이트와 `npm --prefix web run build`를 실행하고,
+`HANDOFF.md`, `README.md`, `docs/api.md`, `docs/roadmap.md`를 함께 갱신합니다.

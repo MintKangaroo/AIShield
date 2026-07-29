@@ -90,14 +90,14 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 
 핵심 MVP(Registry → baseline → bounded attack → defense → evidence → dashboard)는
 완료되어 GitHub `develop` 브랜치에서 Docker로 실행할 수 있습니다. 현재 로드맵 기준
-완료/검증된 항목은 12개 milestone 중 8개 범주이며, 남은 4개는 운영·연구 확장 단계입니다.
+완료/검증된 항목은 12개 milestone 중 9개 범주이며, 남은 항목은 운영·연구 확장 단계입니다.
 
 | 구분 | 상태 |
 | --- | :---: |
 | 재현 가능한 이미지 보안 평가 MVP | ✅ 완료 |
 | 강건 학습(TRADES 포함)·epsilon curve·restart API | ✅ 완료 |
 | 표준 APGD/FAB/Square 호환 공격 | 🧭 다음 단계 |
-| PostgreSQL/Redis 영속·worker 격리 | 🧭 운영 확장 |
+| PostgreSQL/Redis 실제 adapter·worker 격리 | 🧭 운영 확장 |
 | robustness score·고급 dashboard 비교 | 🧭 연구 확장 |
 
 | 영역 | 구현 내용 | 상태 |

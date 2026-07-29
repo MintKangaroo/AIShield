@@ -33,7 +33,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ defense-aware adaptive reevaluation (bit-depth)
    - iterative-vs-single-step and black-box-vs-white-box masking diagnostics
 
-9. **Persistence and isolation**
+9. **Persistence and isolation** *(in progress)*
    - ✅ append-only JSON metadata journal and flush boundary
    - ✅ journal read/audit API
    - ✅ bounded in-process worker queue and job status API
