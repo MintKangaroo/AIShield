@@ -101,6 +101,67 @@ def _attack_batch(
     return adversarial, saw_nonzero_gradient
 
 
+def _deepfool_batch(
+    clean_inputs: Tensor,
+    targets: Tensor,
+    model_bundle: ModelBundle,
+    config: AttackConfig,
+) -> tuple[Tensor, bool]:
+    """Run a bounded, untargeted L2 DeepFool step for each sample."""
+
+    adversarial = clean_inputs.clone()
+    original_predictions: Tensor
+    with torch.inference_mode():
+        original_predictions = cast(
+            Tensor, model_bundle.model(model_bundle.preprocess(clean_inputs))
+        ).argmax(dim=1)
+    saw_nonzero_gradient = False
+
+    for _ in range(config.iterations):
+        next_adversarial = adversarial.clone()
+        for index in range(adversarial.shape[0]):
+            candidate = adversarial[index : index + 1].detach().requires_grad_(True)
+            logits = cast(Tensor, model_bundle.model(model_bundle.preprocess(candidate)))
+            current_class = int(logits.argmax(dim=1).item())
+            if current_class != int(original_predictions[index].item()):
+                continue
+            ranked = logits[0].argsort(descending=True)
+            alternate_class = int(ranked[1].item())
+            margin = logits[0, current_class] - logits[0, alternate_class]
+            if not margin.requires_grad:
+                continue
+            gradient_result = torch.autograd.grad(
+                margin,
+                candidate,
+                only_inputs=True,
+                allow_unused=True,
+            )[0]
+            gradient = (
+                gradient_result if gradient_result is not None else torch.zeros_like(candidate)
+            )
+            if not torch.isfinite(gradient).all():
+                raise RegistryError("DeepFool gradient contains a non-finite value")
+            gradient_norm_squared = gradient.flatten().pow(2).sum()
+            if float(gradient_norm_squared.item()) <= 1e-12:
+                continue
+            saw_nonzero_gradient = True
+            step = (margin.detach() + 1e-4) / gradient_norm_squared.detach() * gradient
+            proposed = candidate.detach() + step
+            delta = proposed - clean_inputs[index : index + 1]
+            l2_norm = delta.flatten().norm(p=2)
+            if float(l2_norm.item()) > config.epsilon:
+                delta = delta * (config.epsilon / l2_norm)
+            next_adversarial[index : index + 1] = (clean_inputs[index : index + 1] + delta).clamp(
+                0.0, 1.0
+            )
+        adversarial = next_adversarial.detach()
+
+    observed_l2 = (adversarial - clean_inputs).flatten(start_dim=1).norm(p=2, dim=1).max()
+    if float(observed_l2.item()) > config.epsilon + BOUND_TOLERANCE:
+        raise RegistryError("generated DeepFool input exceeded the configured L2 bound")
+    return adversarial, saw_nonzero_gradient
+
+
 def run_adversarial_evaluation(
     model_bundle: ModelBundle,
     dataset_bundle: DatasetBundle,
@@ -133,6 +194,7 @@ def run_adversarial_evaluation(
     robust_correct = 0
     successful_attacks = 0
     maximum_observed_linf = 0.0
+    maximum_observed_l2 = 0.0
     saw_nonzero_gradient = False
 
     for raw_inputs, raw_targets in loader:
@@ -155,13 +217,21 @@ def run_adversarial_evaluation(
             raise RegistryError("model output is not a compatible class-logit tensor")
         clean_predictions = clean_logits.argmax(dim=1)
 
-        adversarial, batch_has_gradient = _attack_batch(
-            clean_inputs,
-            targets,
-            model_bundle,
-            config,
-            loss_function,
-        )
+        if config.algorithm.value == "deepfool":
+            adversarial, batch_has_gradient = _deepfool_batch(
+                clean_inputs,
+                targets,
+                model_bundle,
+                config,
+            )
+        else:
+            adversarial, batch_has_gradient = _attack_batch(
+                clean_inputs,
+                targets,
+                model_bundle,
+                config,
+                loss_function,
+            )
         saw_nonzero_gradient = saw_nonzero_gradient or batch_has_gradient
         with torch.inference_mode():
             adversarial_logits = cast(Tensor, model(model_bundle.preprocess(adversarial)))
@@ -175,6 +245,10 @@ def run_adversarial_evaluation(
         maximum_observed_linf = max(
             maximum_observed_linf,
             float((adversarial - clean_inputs).abs().amax().item()),
+        )
+        maximum_observed_l2 = max(
+            maximum_observed_l2,
+            float((adversarial - clean_inputs).flatten(start_dim=1).norm(p=2, dim=1).max().item()),
         )
 
         batch_targets = [int(value) for value in targets.detach().cpu().tolist()]
@@ -209,6 +283,7 @@ def run_adversarial_evaluation(
         clean_correct_samples=clean_correct,
         successful_attacks=successful_attacks,
         maximum_observed_linf=maximum_observed_linf,
+        maximum_observed_l2=maximum_observed_l2,
         clean_prediction_sha256=_fingerprint(all_targets, all_clean_predictions),
         adversarial_prediction_sha256=_fingerprint(all_targets, all_adversarial_predictions),
         gradient_status=gradient_status,

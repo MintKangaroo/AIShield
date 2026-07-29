@@ -45,5 +45,5 @@ silently falling back to CPU.
 The legacy compatibility endpoint checks channel/class alignment, deterministic ordering, optional
 sample caps, clean accuracy, and loss. The full baseline adds confusion matrix, per-class metrics,
 latency, environment evidence, artifacts, and exact-config reruns. The attack registry retains
-bounded FGSM/BIM/PGD records with paired clean/robust metrics, raw attack counts, prediction
+bounded FGSM/BIM/PGD/DeepFool records with paired clean/robust metrics, raw attack counts, prediction
 fingerprints, and gradient-health warnings.

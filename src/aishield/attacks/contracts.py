@@ -16,13 +16,14 @@ class AttackAlgorithm(StrEnum):
     FGSM = "fgsm"
     BIM = "bim"
     PGD = "pgd"
+    DEEPFOOL = "deepfool"
 
 
 class AttackConfig(RegistryModel):
     """Complete and validated L-infinity attack configuration."""
 
     algorithm: AttackAlgorithm
-    norm: Literal["linf"] = "linf"
+    norm: Literal["linf", "l2"] = "linf"
     epsilon: float = Field(gt=0.0, le=1.0)
     step_size: float = Field(gt=0.0, le=1.0)
     iterations: int = Field(ge=1, le=100)
@@ -46,6 +47,10 @@ class AttackConfig(RegistryModel):
             )
         if self.algorithm is AttackAlgorithm.BIM and self.random_start:
             raise ValueError("BIM requires random_start=false; use PGD for randomized starts")
+        if self.algorithm is AttackAlgorithm.DEEPFOOL and self.norm != "l2":
+            raise ValueError("DeepFool requires norm=l2")
+        if self.algorithm is not AttackAlgorithm.DEEPFOOL and self.norm != "linf":
+            raise ValueError("FGSM, BIM, and PGD require norm=linf")
         return self
 
 
@@ -59,6 +64,7 @@ class AttackMetrics(RegistryModel):
     clean_correct_samples: int = Field(ge=0)
     successful_attacks: int = Field(ge=0)
     maximum_observed_linf: float = Field(ge=0.0, le=1.0)
+    maximum_observed_l2: float = Field(default=0.0, ge=0.0)
     clean_prediction_sha256: Sha256
     adversarial_prediction_sha256: Sha256
     gradient_status: Literal["healthy", "flat"]

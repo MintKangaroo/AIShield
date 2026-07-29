@@ -141,6 +141,25 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert bim["config"]["iterations"] == 10
         assert len(client.get("/api/v1/registry/attacks").json()) == 2
 
+        deepfool_response = client.post(
+            "/api/v1/registry/attacks",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "deepfool",
+                "epsilon": 0.5,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert deepfool_response.status_code == 201
+        deepfool = deepfool_response.json()
+        assert deepfool["config"]["norm"] == "l2"
+        assert deepfool["config"]["iterations"] == 20
+        assert deepfool["metrics"]["maximum_observed_l2"] <= 0.5 + 1e-6
+        assert len(client.get("/api/v1/registry/attacks").json()) == 3
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(

@@ -1,6 +1,6 @@
 """Dataset, model, and basic evaluation registry endpoints."""
 
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -84,6 +84,7 @@ class AttackEvaluationRequest(RequestModel):
     model_version_id: UUID
     dataset_id: UUID
     algorithm: AttackAlgorithm
+    norm: Literal["linf", "l2"] | None = None
     epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
     step_size: float | None = Field(default=None, gt=0.0, le=1.0)
     iterations: int | None = Field(default=None, ge=1, le=100)
@@ -250,7 +251,7 @@ def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> Baseline
     "/attacks",
     response_model=AttackRunRecord,
     status_code=status.HTTP_201_CREATED,
-    summary="Run a bounded FGSM, BIM, or PGD evaluation",
+    summary="Run a bounded FGSM, BIM, PGD, or DeepFool evaluation",
 )
 def run_attack(
     payload: AttackEvaluationRequest,
@@ -258,25 +259,37 @@ def run_attack(
 ) -> AttackRunRecord:
     is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
     is_bim = payload.algorithm is AttackAlgorithm.BIM
+    is_deepfool = payload.algorithm is AttackAlgorithm.DEEPFOOL
     try:
         config = AttackConfig(
             algorithm=payload.algorithm,
+            norm=payload.norm or ("l2" if is_deepfool else "linf"),
             epsilon=payload.epsilon,
             step_size=(
                 payload.step_size
                 if payload.step_size is not None
                 else payload.epsilon
                 if is_fgsm
+                else payload.epsilon
+                if is_deepfool
                 else payload.epsilon / 4
             ),
             iterations=(
-                payload.iterations if payload.iterations is not None else 1 if is_fgsm else 10
+                payload.iterations
+                if payload.iterations is not None
+                else 1
+                if is_fgsm
+                else 20
+                if is_deepfool
+                else 10
             ),
             random_start=(
                 payload.random_start
                 if payload.random_start is not None
                 else False
                 if is_bim
+                else False
+                if is_deepfool
                 else not is_fgsm
             ),
             seed=payload.seed,

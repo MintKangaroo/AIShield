@@ -393,6 +393,9 @@ function AttackForm({
       max_samples: maxSamples.trim() ? Number(maxSamples) : null,
     };
     if (algorithm !== "fgsm") {
+      if (algorithm === "deepfool") {
+        payload.norm = "l2";
+      }
       payload.step_size = Math.min(2 / 255, epsilonValue);
       payload.iterations = iterations;
       payload.random_start = algorithm === "pgd";
@@ -403,7 +406,7 @@ function AttackForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <div className="attack-picker" role="group" aria-label="Attack algorithm">
-        {(["fgsm", "bim", "pgd"] as const).map((item) => (
+        {(["fgsm", "bim", "pgd", "deepfool"] as const).map((item) => (
           <button
             className={algorithm === item ? "active" : ""}
             key={item}
@@ -416,7 +419,9 @@ function AttackForm({
                 ? "Fast single-step gradient attack"
                 : item === "bim"
                   ? "Iterative attack without random start"
-                  : "Iterative projected attack with random start"}
+                  : item === "pgd"
+                    ? "Iterative projected attack with random start"
+                    : "L2 boundary attack with adaptive steps"}
             </small>
           </button>
         ))}
@@ -1471,7 +1476,8 @@ function App() {
                     <span className="mono faint">{formatDate(selectedAttack.created_at)}</span>
                   </div>
                   <span className="attack-title-badge">
-                    {selectedAttack.config.algorithm.toUpperCase()} · L∞
+                    {selectedAttack.config.algorithm.toUpperCase()} ·{" "}
+                    {selectedAttack.config.norm === "l2" ? "L2" : "L∞"}
                   </span>
                   <h2>{attackModel?.architecture ?? "Adversarial evaluation"}</h2>
                   <p>
@@ -1527,8 +1533,14 @@ function App() {
                       <b>{(selectedAttack.config.epsilon * 255).toFixed(1)} / 255</b>
                     </span>
                     <span>
-                      <small>Observed L∞</small>
-                      <b>{(selectedAttack.metrics.maximum_observed_linf * 255).toFixed(2)} / 255</b>
+                      <small>
+                        Observed {selectedAttack.config.norm === "l2" ? "L2" : "L∞"}
+                      </small>
+                      <b>
+                        {selectedAttack.config.norm === "l2"
+                          ? selectedAttack.metrics.maximum_observed_l2.toFixed(4)
+                          : `${(selectedAttack.metrics.maximum_observed_linf * 255).toFixed(2)} / 255`}
+                      </b>
                     </span>
                     <span>
                       <small>Iterations</small>

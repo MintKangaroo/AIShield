@@ -142,8 +142,8 @@ export interface AttackRunRecord {
   dataset_id: string;
   dataset_manifest_sha256: string;
   config: {
-    algorithm: "fgsm" | "bim" | "pgd";
-    norm: "linf";
+    algorithm: "fgsm" | "bim" | "pgd" | "deepfool";
+    norm: "linf" | "l2";
     epsilon: number;
     step_size: number;
     iterations: number;
@@ -162,6 +162,7 @@ export interface AttackRunRecord {
     clean_correct_samples: number;
     successful_attacks: number;
     maximum_observed_linf: number;
+    maximum_observed_l2: number;
     clean_prediction_sha256: string;
     adversarial_prediction_sha256: string;
     gradient_status: "healthy" | "flat";
@@ -172,7 +173,8 @@ export interface AttackRunRecord {
 export interface AttackRequest {
   model_version_id: string;
   dataset_id: string;
-  algorithm: "fgsm" | "bim" | "pgd";
+  algorithm: "fgsm" | "bim" | "pgd" | "deepfool";
+  norm?: "linf" | "l2";
   epsilon: number;
   step_size?: number;
   iterations?: number;
