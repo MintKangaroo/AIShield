@@ -122,6 +122,25 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert len(client.get("/api/v1/registry/attacks").json()) == 1
         assert client.get(f"/api/v1/registry/attacks/{attack['id']}").json()["id"] == attack["id"]
 
+        bim_response = client.post(
+            "/api/v1/registry/attacks",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "bim",
+                "epsilon": 0.1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert bim_response.status_code == 201
+        bim = bim_response.json()
+        assert bim["config"]["algorithm"] == "bim"
+        assert bim["config"]["random_start"] is False
+        assert bim["config"]["iterations"] == 10
+        assert len(client.get("/api/v1/registry/attacks").json()) == 2
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(

@@ -16,8 +16,9 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
 
 ## 다음
 
-7. **Additional attacks**
-   - BIM, DeepFool, Carlini–Wagner
+7. **Additional attacks** *(in progress)*
+   - ✅ BIM (iterative FGSM without random start)
+   - DeepFool, Carlini–Wagner
    - AutoAttack adapter behind the common interface
    - epsilon/iteration strength curves and multiple restarts
    - algorithm별 independent numerical fixtures

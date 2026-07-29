@@ -250,13 +250,14 @@ def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> Baseline
     "/attacks",
     response_model=AttackRunRecord,
     status_code=status.HTTP_201_CREATED,
-    summary="Run a bounded FGSM or PGD evaluation",
+    summary="Run a bounded FGSM, BIM, or PGD evaluation",
 )
 def run_attack(
     payload: AttackEvaluationRequest,
     registry: RegistryDependency,
 ) -> AttackRunRecord:
     is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
+    is_bim = payload.algorithm is AttackAlgorithm.BIM
     try:
         config = AttackConfig(
             algorithm=payload.algorithm,
@@ -272,7 +273,11 @@ def run_attack(
                 payload.iterations if payload.iterations is not None else 1 if is_fgsm else 10
             ),
             random_start=(
-                payload.random_start if payload.random_start is not None else not is_fgsm
+                payload.random_start
+                if payload.random_start is not None
+                else False
+                if is_bim
+                else not is_fgsm
             ),
             seed=payload.seed,
             batch_size=payload.batch_size,

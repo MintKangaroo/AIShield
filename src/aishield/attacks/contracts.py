@@ -11,9 +11,10 @@ from aishield.registry.contracts import Probability, RegistryModel, Sha256
 
 
 class AttackAlgorithm(StrEnum):
-    """Implemented first-order attack algorithms."""
+    """Implemented bounded first-order attack algorithms."""
 
     FGSM = "fgsm"
+    BIM = "bim"
     PGD = "pgd"
 
 
@@ -43,6 +44,8 @@ class AttackConfig(RegistryModel):
             raise ValueError(
                 "FGSM requires one iteration, no random start, and step_size equal to epsilon"
             )
+        if self.algorithm is AttackAlgorithm.BIM and self.random_start:
+            raise ValueError("BIM requires random_start=false; use PGD for randomized starts")
         return self
 
 

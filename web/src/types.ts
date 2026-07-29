@@ -142,7 +142,7 @@ export interface AttackRunRecord {
   dataset_id: string;
   dataset_manifest_sha256: string;
   config: {
-    algorithm: "fgsm" | "pgd";
+    algorithm: "fgsm" | "bim" | "pgd";
     norm: "linf";
     epsilon: number;
     step_size: number;
@@ -172,7 +172,7 @@ export interface AttackRunRecord {
 export interface AttackRequest {
   model_version_id: string;
   dataset_id: string;
-  algorithm: "fgsm" | "pgd";
+  algorithm: "fgsm" | "bim" | "pgd";
   epsilon: number;
   step_size?: number;
   iterations?: number;

@@ -104,6 +104,7 @@ def attack_bundles(
     ("algorithm", "step_size", "iterations"),
     (
         (AttackAlgorithm.FGSM, 0.5, 1),
+        (AttackAlgorithm.BIM, 0.25, 2),
         (AttackAlgorithm.PGD, 0.25, 2),
     ),
 )
@@ -159,6 +160,19 @@ def test_attack_exposes_flat_gradient_warning(tmp_path: Path) -> None:
 
     assert result.metrics.gradient_status == "flat"
     assert "gradient masking" in result.warnings[0]
+
+
+def test_bim_rejects_random_start() -> None:
+    with pytest.raises(ValueError, match="BIM requires random_start=false"):
+        AttackConfig(
+            algorithm=AttackAlgorithm.BIM,
+            epsilon=0.1,
+            step_size=0.05,
+            iterations=2,
+            random_start=True,
+            seed=1,
+            batch_size=4,
+        )
 
 
 def test_attack_rejects_inputs_outside_unit_interval(tmp_path: Path) -> None:
