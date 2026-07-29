@@ -39,9 +39,9 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - CPU/CUDA worker image digest pinning
 
 10. **Transparent robustness score**
-    - versioned public formula
-    - raw input metrics retained alongside every component
-    - missing/invalid attack evidence cannot silently improve the score
+    - ✅ versioned public formula
+    - ✅ raw input metrics retained alongside every component
+    - ✅ missing/invalid attack evidence cannot silently improve the score
 
 11. **Dashboard expansion**
     - strength curves, run-to-run comparison, sample triplets

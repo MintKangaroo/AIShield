@@ -14,6 +14,7 @@ from aishield.evaluation.contracts import (
     BaselineRunRecord,
     BaselineVerification,
 )
+from aishield.evaluation.score import RobustnessScore, calculate_score
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -151,6 +152,12 @@ class TrainingRequest(RequestModel):
     attack_iterations: int = Field(default=2, ge=1, le=20)
     learning_rate: float = Field(default=1e-3, gt=0.0, le=1.0)
     trades_beta: float = Field(default=6.0, ge=0.0, le=100.0)
+
+
+class RobustnessScoreRequest(RequestModel):
+    """Aggregate retained attack evidence without hiding raw metrics."""
+
+    attack_run_ids: list[UUID] = Field(min_length=1, max_length=32)
 
 
 def get_registry(request: Request) -> RegistryService:
@@ -540,6 +547,22 @@ def train_registered_model(
 )
 def list_training(registry: RegistryDependency) -> list[TrainingRunRecord]:
     return registry.list_training()
+
+
+@router.post(
+    "/robustness-score",
+    response_model=RobustnessScore,
+    status_code=status.HTTP_201_CREATED,
+    summary="Calculate a transparent robustness score",
+)
+def calculate_robustness_score(
+    payload: RobustnessScoreRequest,
+    registry: RegistryDependency,
+) -> RobustnessScore:
+    try:
+        return calculate_score([registry.get_attack(run_id) for run_id in payload.attack_run_ids])
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
 
 
 @router.get(

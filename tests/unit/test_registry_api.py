@@ -217,6 +217,15 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         curve = curve_response.json()
         assert [point["config"]["epsilon"] for point in curve] == [0.02, 0.02, 0.05, 0.05]
 
+        score_response = client.post(
+            "/api/v1/registry/robustness-score",
+            json={"attack_run_ids": [attack["id"]]},
+        )
+        assert score_response.status_code == 201
+        score = score_response.json()
+        assert score["formula_version"] == "mean-robust-accuracy-v1"
+        assert score["attack_run_ids"] == [attack["id"]]
+
         defense_response = client.post(
             "/api/v1/registry/defenses",
             json={
