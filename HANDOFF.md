@@ -5,7 +5,7 @@
 ## 현재 브랜치와 범위
 
 - 작업 브랜치: `feat/clean-baseline`
-- 안정 기준: reproducible clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW + functional dashboard
+- 안정 기준: reproducible clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack + functional dashboard
 - Registry/run index: API process memory
 - Dataset/model/baseline artifact: configured local directory 또는 Docker volume
 - 공개 download: 기본 거부
@@ -19,7 +19,7 @@
 - exact-config baseline rerun 검증
 - artifact download endpoint와 root/symlink check
 - deterministic zero-download `Signal-10` adapter
-- bounded FGSM/BIM/PGD/DeepFool/CW, paired metrics, norm verification, gradient warning
+- bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack, paired metrics, norm verification, gradient warning
 - dataset/model/baseline/attack/artifact를 조작하는 React dashboard
 - 실제 API run을 사용한 README screenshots와 screenshot automation
 
@@ -52,6 +52,7 @@ smoke는 Dashboard의 `Launch zero-download demo`로 dataset → model → basel
 - PGD default는 step=`epsilon/4`, 10 iterations, random start입니다.
 - DeepFool은 bounded L2 step과 observed L2를 기록합니다.
 - CW는 bounded L2 margin optimization과 observed L2를 기록합니다.
+- AutoAttack은 deterministic FGSM/BIM/PGD ensemble으로 worst-margin 결과를 기록합니다.
 - 모든 attack input은 finite `[0,1]` tensor여야 하며 projection 후 observed L∞를 검사합니다.
 - Flat gradient는 성공이 아니라 masking warning입니다.
 - Synthetic dataset과 untrained SmallCNN 결과는 security benchmark가 아닙니다.

@@ -2,7 +2,7 @@
 
 ## Release boundary
 
-현재 release는 PyTorch 이미지 분류 모델의 재현 가능한 clean/FGSM/BIM/PGD/DeepFool/CW 평가를 제공합니다.
+현재 release는 PyTorch 이미지 분류 모델의 재현 가능한 clean/FGSM/BIM/PGD/DeepFool/CW/AutoAttack-style 평가를 제공합니다.
 LLM security, privacy inference, model extraction은 같은 metric contract에 섞지 않습니다.
 
 ```text
@@ -14,7 +14,7 @@ Browser
                           ├─> Dataset adapters
                           ├─> Model adapters
                           ├─> Clean baseline engine ─> JSON / PNG artifacts
-                          └─> FGSM / BIM / PGD / DeepFool / CW engine ─> paired attack evidence
+                          └─> FGSM / BIM / PGD / DeepFool / CW / AutoAttack engine ─> paired attack evidence
 
 PostgreSQL ─ metadata persistence boundary (future)
 Redis      ─ isolated worker boundary (future)
@@ -31,7 +31,7 @@ readiness를 가장하지 않습니다.
 - `aishield.registry` — adapter allowlist, runtime handle, safe checkpoint, hash, orchestration.
 - `aishield.evaluation` — clean metric, latency, environment capture, artifact rendering,
   exact-config verification.
-- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW runner.
+- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner.
 - `aishield.schemas` — portable versioned experiment exchange contract.
 
 Attack runner는 API에 의존하지 않습니다. Raw input tensor에 perturbation을 만들고
@@ -81,7 +81,7 @@ compatibility check
 compatibility and [0,1] validation
   -> paired clean prediction
   -> input gradient
-  -> FGSM step, iterative BIM, randomized PGD, bounded L2 DeepFool, or CW optimization
+  -> FGSM step, iterative BIM, randomized PGD, bounded L2 DeepFool/CW, or AutoAttack ensemble
   -> L∞ projection + [0,1] clamp
   -> numerical bound verification
   -> adversarial prediction

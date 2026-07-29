@@ -10,6 +10,7 @@ from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from aishield.attacks.contracts import (
+    AttackAlgorithm,
     AttackConfig,
     AttackMetrics,
     AttackRunRecord,
@@ -215,6 +216,55 @@ def _cw_batch(
     return adversarial.detach(), saw_nonzero_gradient
 
 
+def _autoattack_batch(
+    clean_inputs: Tensor,
+    targets: Tensor,
+    model_bundle: ModelBundle,
+    config: AttackConfig,
+    loss_function: nn.CrossEntropyLoss,
+) -> tuple[Tensor, bool]:
+    """Select the strongest result from a deterministic FGSM/BIM/PGD ensemble."""
+
+    variants = (
+        (AttackAlgorithm.FGSM, config.epsilon, 1, False),
+        (AttackAlgorithm.BIM, config.epsilon / 4, 10, False),
+        (AttackAlgorithm.PGD, config.epsilon / 4, 10, True),
+    )
+    best_adversarial = clean_inputs.clone()
+    best_margin = torch.full((clean_inputs.shape[0],), float("inf"), device=clean_inputs.device)
+    saw_nonzero_gradient = False
+    for index, (algorithm, step_size, iterations, random_start) in enumerate(variants):
+        set_global_seed(config.seed + index)
+        variant_config = AttackConfig(
+            algorithm=algorithm,
+            epsilon=config.epsilon,
+            step_size=step_size,
+            iterations=iterations,
+            random_start=random_start,
+            seed=config.seed + index,
+            batch_size=config.batch_size,
+            max_samples=config.max_samples,
+        )
+        candidate, has_gradient = _attack_batch(
+            clean_inputs,
+            targets,
+            model_bundle,
+            variant_config,
+            loss_function,
+        )
+        saw_nonzero_gradient = saw_nonzero_gradient or has_gradient
+        with torch.inference_mode():
+            logits = cast(Tensor, model_bundle.model(model_bundle.preprocess(candidate)))
+            true_logits = logits.gather(1, targets.unsqueeze(1)).squeeze(1)
+            other_logits = logits.clone()
+            other_logits.scatter_(1, targets.unsqueeze(1), float("-inf"))
+            margin = true_logits - other_logits.max(dim=1).values
+        improved = margin < best_margin
+        best_adversarial[improved] = candidate[improved]
+        best_margin[improved] = margin[improved]
+    return best_adversarial.detach(), saw_nonzero_gradient
+
+
 def run_adversarial_evaluation(
     model_bundle: ModelBundle,
     dataset_bundle: DatasetBundle,
@@ -283,6 +333,14 @@ def run_adversarial_evaluation(
                 targets,
                 model_bundle,
                 config,
+            )
+        elif config.algorithm.value == "autoattack":
+            adversarial, batch_has_gradient = _autoattack_batch(
+                clean_inputs,
+                targets,
+                model_bundle,
+                config,
+                loss_function,
             )
         else:
             adversarial, batch_has_gradient = _attack_batch(

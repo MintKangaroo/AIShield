@@ -180,6 +180,25 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert cw["metrics"]["maximum_observed_l2"] <= 0.5 + 1e-6
         assert len(client.get("/api/v1/registry/attacks").json()) == 4
 
+        autoattack_response = client.post(
+            "/api/v1/registry/attacks",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "autoattack",
+                "epsilon": 0.1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert autoattack_response.status_code == 201
+        autoattack = autoattack_response.json()
+        assert autoattack["config"]["norm"] == "linf"
+        assert autoattack["config"]["random_start"] is False
+        assert autoattack["metrics"]["maximum_observed_linf"] <= 0.1 + 1e-6
+        assert len(client.get("/api/v1/registry/attacks").json()) == 5
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(

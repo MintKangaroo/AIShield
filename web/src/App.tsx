@@ -406,7 +406,7 @@ function AttackForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <div className="attack-picker" role="group" aria-label="Attack algorithm">
-        {(["fgsm", "bim", "pgd", "deepfool", "cw"] as const).map((item) => (
+        {(["fgsm", "bim", "pgd", "deepfool", "cw", "autoattack"] as const).map((item) => (
           <button
             className={algorithm === item ? "active" : ""}
             key={item}
@@ -423,7 +423,9 @@ function AttackForm({
                     ? "Iterative projected attack with random start"
                   : item === "deepfool"
                     ? "L2 boundary attack with adaptive steps"
-                    : "L2 margin optimization attack"}
+                    : item === "cw"
+                      ? "L2 margin optimization attack"
+                      : "Deterministic FGSM/BIM/PGD ensemble"}
             </small>
           </button>
         ))}

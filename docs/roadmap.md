@@ -20,7 +20,8 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ BIM (iterative FGSM without random start)
    - ✅ DeepFool (bounded L2 steps)
    - ✅ Carlini–Wagner (bounded L2 optimization)
-   - AutoAttack adapter behind the common interface
+   - ✅ AutoAttack-style deterministic FGSM/BIM/PGD ensemble adapter
+   - Standard APGD/FAB/Square adapter
    - epsilon/iteration strength curves and multiple restarts
    - algorithm별 independent numerical fixtures
 
