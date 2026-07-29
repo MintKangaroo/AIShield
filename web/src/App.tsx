@@ -393,7 +393,7 @@ function AttackForm({
       max_samples: maxSamples.trim() ? Number(maxSamples) : null,
     };
     if (algorithm !== "fgsm") {
-      if (algorithm === "deepfool") {
+      if (algorithm === "deepfool" || algorithm === "cw") {
         payload.norm = "l2";
       }
       payload.step_size = Math.min(2 / 255, epsilonValue);
@@ -406,7 +406,7 @@ function AttackForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <div className="attack-picker" role="group" aria-label="Attack algorithm">
-        {(["fgsm", "bim", "pgd", "deepfool"] as const).map((item) => (
+        {(["fgsm", "bim", "pgd", "deepfool", "cw"] as const).map((item) => (
           <button
             className={algorithm === item ? "active" : ""}
             key={item}
@@ -421,7 +421,9 @@ function AttackForm({
                   ? "Iterative attack without random start"
                   : item === "pgd"
                     ? "Iterative projected attack with random start"
-                    : "L2 boundary attack with adaptive steps"}
+                  : item === "deepfool"
+                    ? "L2 boundary attack with adaptive steps"
+                    : "L2 margin optimization attack"}
             </small>
           </button>
         ))}

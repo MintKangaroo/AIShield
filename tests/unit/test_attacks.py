@@ -200,6 +200,30 @@ def test_deepfool_reports_l2_bound(tmp_path: Path) -> None:
     assert result.metrics.gradient_status == "healthy"
 
 
+def test_carlini_wagner_reports_l2_bound(tmp_path: Path) -> None:
+    model, dataset = attack_bundles(tmp_path)
+
+    result = run_adversarial_evaluation(
+        model,
+        dataset,
+        config=AttackConfig(
+            algorithm=AttackAlgorithm.CARLINI_WAGNER,
+            norm="l2",
+            epsilon=0.5,
+            step_size=0.05,
+            iterations=20,
+            random_start=False,
+            seed=1729,
+            batch_size=2,
+            max_samples=4,
+        ),
+    )
+
+    assert result.config.norm == "l2"
+    assert result.metrics.maximum_observed_l2 <= 0.5 + 1e-6
+    assert result.metrics.gradient_status == "healthy"
+
+
 def test_attack_rejects_inputs_outside_unit_interval(tmp_path: Path) -> None:
     inputs = torch.tensor([-0.1, 0.2, 0.8, 1.1]).reshape(4, 1, 1, 1)
     model, dataset = attack_bundles(tmp_path, inputs=inputs)
