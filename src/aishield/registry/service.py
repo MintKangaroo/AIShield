@@ -304,6 +304,11 @@ class RegistryService:
         with self._lock:
             return [self._training[key] for key in sorted(self._training, key=str)]
 
+    def read_journal(self) -> list[dict[str, object]]:
+        """Return append-only metadata entries for audit/export consumers."""
+
+        return self._journal.read()
+
     def get_baseline(self, baseline_id: UUID) -> BaselineRunRecord:
         """Return a completed baseline or raise a domain-level not-found error."""
 

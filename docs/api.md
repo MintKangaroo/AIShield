@@ -34,6 +34,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/robustness-score` | Transparent aggregate over attack evidence |
 | `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |
 | `GET` | `/api/v1/registry/training` | Training evidence list |
+| `GET` | `/api/v1/registry/journal` | Append-only metadata audit/export stream |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는

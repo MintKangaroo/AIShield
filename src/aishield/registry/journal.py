@@ -22,3 +22,19 @@ class RegistryJournal:
         with self._lock, self.path.open("a", encoding="utf-8") as handle:
             handle.write(line)
             handle.flush()
+
+    def read(self) -> list[dict[str, Any]]:
+        """Read valid journal entries in append order."""
+
+        if not self.path.exists():
+            return []
+        entries: list[dict[str, Any]] = []
+        with self._lock, self.path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict) and isinstance(payload.get("record"), dict):
+                    entries.append(payload)
+        return entries

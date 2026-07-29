@@ -263,6 +263,9 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         transfer = transfer_response.json()
         assert transfer["metrics"]["evaluated_samples"] == 3
         assert len(client.get("/api/v1/registry/defenses/transfer").json()) == 1
+        journal = client.get("/api/v1/registry/journal")
+        assert journal.status_code == 200
+        assert any(entry["kind"] == "attack" for entry in journal.json())
 
         training_response = client.post(
             "/api/v1/registry/training",

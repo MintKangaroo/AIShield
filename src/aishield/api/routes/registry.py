@@ -615,6 +615,15 @@ def list_training(registry: RegistryDependency) -> list[TrainingRunRecord]:
     return registry.list_training()
 
 
+@router.get(
+    "/journal",
+    response_model=list[dict[str, object]],
+    summary="Read append-only registry metadata journal",
+)
+def read_journal(registry: RegistryDependency) -> list[dict[str, object]]:
+    return registry.read_journal()
+
+
 @router.post(
     "/robustness-score",
     response_model=RobustnessScore,
