@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
 
-from aishield.attacks.contracts import AttackAlgorithm
+from aishield.attacks.contracts import AttackAlgorithm, AttackConfig
 from aishield.evaluation.contracts import BaselineEnvironment
 from aishield.registry.contracts import Probability, RegistryModel, Sha256
 
@@ -56,4 +56,31 @@ class DefenseRunRecord(RegistryModel):
     attack_algorithm: AttackAlgorithm
     environment: BaselineEnvironment
     metrics: DefenseMetrics
+    warnings: tuple[str, ...] = ()
+
+
+class TransferDefenseMetrics(RegistryModel):
+    """Metrics when perturbations are generated on a surrogate model."""
+
+    clean_accuracy: Probability
+    transferred_robust_accuracy: Probability
+    transfer_attack_success_rate: Probability
+    evaluated_samples: int = Field(gt=0)
+    clean_correct_samples: int = Field(ge=0)
+    successful_transfers: int = Field(ge=0)
+    maximum_observed_linf: float = Field(ge=0.0, le=1.0)
+
+
+class TransferDefenseRunRecord(RegistryModel):
+    """Evidence for a black-box surrogate-to-target transfer evaluation."""
+
+    id: UUID
+    created_at: AwareDatetime
+    surrogate_model_version_id: UUID
+    target_model_version_id: UUID
+    dataset_id: UUID
+    dataset_manifest_sha256: Sha256
+    attack: AttackConfig
+    environment: BaselineEnvironment
+    metrics: TransferDefenseMetrics
     warnings: tuple[str, ...] = ()

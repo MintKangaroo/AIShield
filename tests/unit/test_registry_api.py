@@ -246,6 +246,24 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert defense["metrics"]["evaluated_samples"] == 3
         assert len(client.get("/api/v1/registry/defenses").json()) == 1
 
+        transfer_response = client.post(
+            "/api/v1/registry/defenses/transfer",
+            json={
+                "surrogate_model_version_id": model["id"],
+                "target_model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "pgd",
+                "iterations": 1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert transfer_response.status_code == 201
+        transfer = transfer_response.json()
+        assert transfer["metrics"]["evaluated_samples"] == 3
+        assert len(client.get("/api/v1/registry/defenses/transfer").json()) == 1
+
         training_response = client.post(
             "/api/v1/registry/training",
             json={

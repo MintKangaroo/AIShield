@@ -8,7 +8,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aishield.attacks.contracts import AttackAlgorithm, AttackConfig, AttackRunRecord
-from aishield.defenses.contracts import DefenseConfig, DefenseKind, DefenseRunRecord
+from aishield.defenses.contracts import (
+    DefenseConfig,
+    DefenseKind,
+    DefenseRunRecord,
+    TransferDefenseRunRecord,
+)
 from aishield.evaluation.contracts import (
     BaselineConfig,
     BaselineRunRecord,
@@ -158,6 +163,21 @@ class RobustnessScoreRequest(RequestModel):
     """Aggregate retained attack evidence without hiding raw metrics."""
 
     attack_run_ids: list[UUID] = Field(min_length=1, max_length=32)
+
+
+class TransferEvaluationRequest(RequestModel):
+    """Generate a black-box transfer attack from a surrogate model."""
+
+    surrogate_model_version_id: UUID
+    target_model_version_id: UUID
+    dataset_id: UUID
+    algorithm: AttackAlgorithm = AttackAlgorithm.PGD
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
+    step_size: float | None = Field(default=None, gt=0.0, le=1.0)
+    iterations: int = Field(default=10, ge=1, le=100)
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
 
 
 def get_registry(request: Request) -> RegistryService:
@@ -506,6 +526,52 @@ def run_defense(
 )
 def list_defenses(registry: RegistryDependency) -> list[DefenseRunRecord]:
     return registry.list_defenses()
+
+
+@router.post(
+    "/defenses/transfer",
+    response_model=TransferDefenseRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Evaluate surrogate-to-target transfer robustness",
+)
+def run_transfer(
+    payload: TransferEvaluationRequest,
+    registry: RegistryDependency,
+) -> TransferDefenseRunRecord:
+    try:
+        is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
+        is_deepfool = payload.algorithm is AttackAlgorithm.DEEPFOOL
+        is_cw = payload.algorithm is AttackAlgorithm.CARLINI_WAGNER
+        if is_deepfool or is_cw or payload.algorithm is AttackAlgorithm.AUTOATTACK:
+            raise ValueError("transfer evaluation supports bounded L-infinity attacks only")
+        config = AttackConfig(
+            algorithm=payload.algorithm,
+            norm="l2" if is_deepfool or is_cw else "linf",
+            epsilon=payload.epsilon,
+            step_size=payload.step_size or (payload.epsilon if is_fgsm else payload.epsilon / 4),
+            iterations=1 if is_fgsm else payload.iterations,
+            random_start=not (is_fgsm or is_deepfool or is_cw),
+            seed=payload.seed,
+            batch_size=payload.batch_size,
+            max_samples=payload.max_samples,
+        )
+        return registry.run_transfer(
+            payload.surrogate_model_version_id,
+            payload.target_model_version_id,
+            payload.dataset_id,
+            attack=config,
+        )
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/defenses/transfer",
+    response_model=list[TransferDefenseRunRecord],
+    summary="List surrogate-to-target transfer evaluations",
+)
+def list_transfers(registry: RegistryDependency) -> list[TransferDefenseRunRecord]:
+    return registry.list_transfers()
 
 
 @router.post(

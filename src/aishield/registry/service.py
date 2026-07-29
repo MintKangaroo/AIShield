@@ -9,8 +9,8 @@ from uuid import UUID
 from aishield.attacks.contracts import AttackConfig, AttackRunRecord
 from aishield.attacks.runner import run_adversarial_evaluation
 from aishield.core.config import Settings
-from aishield.defenses.contracts import DefenseConfig, DefenseRunRecord
-from aishield.defenses.runner import run_defense_evaluation
+from aishield.defenses.contracts import DefenseConfig, DefenseRunRecord, TransferDefenseRunRecord
+from aishield.defenses.runner import run_defense_evaluation, run_transfer_evaluation
 from aishield.evaluation.contracts import (
     BaselineArtifact,
     BaselineConfig,
@@ -61,6 +61,7 @@ class RegistryService:
         self._baselines: dict[UUID, BaselineRunRecord] = {}
         self._attacks: dict[UUID, AttackRunRecord] = {}
         self._defenses: dict[UUID, DefenseRunRecord] = {}
+        self._transfers: dict[UUID, TransferDefenseRunRecord] = {}
         self._training: dict[UUID, TrainingRunRecord] = {}
         self._lock = RLock()
 
@@ -239,6 +240,32 @@ class RegistryService:
 
         with self._lock:
             return [self._defenses[key] for key in sorted(self._defenses, key=str)]
+
+    def run_transfer(
+        self,
+        surrogate_model_id: UUID,
+        target_model_id: UUID,
+        dataset_id: UUID,
+        *,
+        attack: AttackConfig,
+    ) -> TransferDefenseRunRecord:
+        """Generate a surrogate attack and measure black-box transfer."""
+
+        record = run_transfer_evaluation(
+            self.get_model_bundle(surrogate_model_id),
+            self.get_model_bundle(target_model_id),
+            self.get_dataset_bundle(dataset_id),
+            attack=attack,
+        )
+        with self._lock:
+            self._transfers[record.id] = record
+        return record
+
+    def list_transfers(self) -> list[TransferDefenseRunRecord]:
+        """List transfer evaluations in deterministic ID order."""
+
+        with self._lock:
+            return [self._transfers[key] for key in sorted(self._transfers, key=str)]
 
     def train_model(
         self,

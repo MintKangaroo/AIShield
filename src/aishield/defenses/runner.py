@@ -1,14 +1,23 @@
 """Deterministic preprocessing-defense evaluation."""
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
+from torch.utils.data import DataLoader
 
 from aishield.attacks.contracts import AttackConfig
-from aishield.attacks.runner import run_adversarial_evaluation
-from aishield.defenses.contracts import DefenseConfig, DefenseKind, DefenseMetrics, DefenseRunRecord
+from aishield.attacks.runner import _attack_batch, run_adversarial_evaluation
+from aishield.defenses.contracts import (
+    DefenseConfig,
+    DefenseKind,
+    DefenseMetrics,
+    DefenseRunRecord,
+    TransferDefenseMetrics,
+    TransferDefenseRunRecord,
+)
 from aishield.evaluation.environment import capture_environment
 from aishield.registry.datasets import DatasetBundle
 from aishield.registry.errors import RegistryError
@@ -73,4 +82,72 @@ def run_defense_evaluation(
             adaptive_gradient_status=after.metrics.gradient_status,
         ),
         warnings=tuple(warnings),
+    )
+
+
+def run_transfer_evaluation(
+    surrogate: ModelBundle,
+    target: ModelBundle,
+    dataset_bundle: DatasetBundle,
+    *,
+    attack: AttackConfig,
+) -> TransferDefenseRunRecord:
+    """Generate perturbations on a surrogate and measure transfer on target."""
+
+    if surrogate.record.input_channels != target.record.input_channels:
+        raise RegistryError("surrogate and target input channels must match")
+    if surrogate.record.num_classes != target.record.num_classes:
+        raise RegistryError("surrogate and target class counts must match")
+    loader = DataLoader(dataset_bundle.dataset, batch_size=attack.batch_size, shuffle=False)
+    source = surrogate.model.eval()
+    destination = target.model.eval()
+    device = torch.device(target.record.device)
+    loss = nn.CrossEntropyLoss()
+    total = clean_correct = robust_correct = successful = 0
+    max_linf = 0.0
+    for raw_inputs, raw_targets in loader:
+        remaining = attack.max_samples - total if attack.max_samples is not None else None
+        if remaining is not None and remaining <= 0:
+            break
+        inputs = raw_inputs[:remaining] if remaining is not None else raw_inputs
+        targets = raw_targets[:remaining] if remaining is not None else raw_targets
+        inputs = inputs.to(device=device, dtype=torch.float32)
+        targets = targets.to(device=device, dtype=torch.long)
+        with torch.inference_mode():
+            clean_logits = cast(Tensor, destination(target.preprocess(inputs)))
+        source_bundle = ModelBundle(
+            model=source, record=surrogate.record, preprocess=surrogate.preprocess
+        )
+        adversarial, _ = _attack_batch(inputs, targets, source_bundle, attack, loss)
+        with torch.inference_mode():
+            adversarial_logits = cast(Tensor, destination(target.preprocess(adversarial)))
+        clean_predictions = clean_logits.argmax(dim=1)
+        adversarial_predictions = adversarial_logits.argmax(dim=1)
+        clean_mask = clean_predictions == targets
+        clean_correct += int(clean_mask.sum().item())
+        robust_correct += int((adversarial_predictions == targets).sum().item())
+        successful += int((clean_mask & (adversarial_predictions != targets)).sum().item())
+        max_linf = max(max_linf, float((adversarial - inputs).abs().amax().item()))
+        total += int(targets.shape[0])
+    if total == 0:
+        raise RegistryError("transfer evaluation produced no samples")
+    return TransferDefenseRunRecord(
+        id=uuid4(),
+        created_at=datetime.now(UTC),
+        surrogate_model_version_id=surrogate.record.id,
+        target_model_version_id=target.record.id,
+        dataset_id=dataset_bundle.record.id,
+        dataset_manifest_sha256=dataset_bundle.record.manifest_sha256,
+        attack=attack,
+        environment=capture_environment(device),
+        metrics=TransferDefenseMetrics(
+            clean_accuracy=clean_correct / total,
+            transferred_robust_accuracy=robust_correct / total,
+            transfer_attack_success_rate=successful / clean_correct if clean_correct else 0.0,
+            evaluated_samples=total,
+            clean_correct_samples=clean_correct,
+            successful_transfers=successful,
+            maximum_observed_linf=max_linf,
+        ),
+        warnings=("Transfer strength depends on surrogate-target similarity.",),
     )
