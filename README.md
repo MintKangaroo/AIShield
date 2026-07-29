@@ -86,6 +86,20 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 
 ## ✨ 현재 제공 기능
 
+### 현재 완성도
+
+핵심 MVP(Registry → baseline → bounded attack → defense → evidence → dashboard)는
+완료되어 GitHub `develop` 브랜치에서 Docker로 실행할 수 있습니다. 현재 로드맵 기준
+완료/검증된 항목은 12개 milestone 중 8개 범주이며, 남은 4개는 운영·연구 확장 단계입니다.
+
+| 구분 | 상태 |
+| --- | :---: |
+| 재현 가능한 이미지 보안 평가 MVP | ✅ 완료 |
+| 강건 학습(TRADES 포함)·epsilon curve·restart API | ✅ 완료 |
+| 표준 APGD/FAB/Square 호환 공격 | 🧭 다음 단계 |
+| PostgreSQL/Redis 영속·worker 격리 | 🧭 운영 확장 |
+| robustness score·고급 dashboard 비교 | 🧭 연구 확장 |
+
 | 영역 | 구현 내용 | 상태 |
 | --- | --- | :---: |
 | Dataset registry | 로컬 생성 `Signal-10`, 승인된 MNIST/CIFAR-10, split·manifest hash | ✅ |
@@ -102,7 +116,7 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 | Dashboard | 등록·실행·비교·검증·artifact 다운로드를 지원하는 React console | ✅ |
 | API | strict request contract, OpenAPI/Swagger/ReDoc, 404/정책 오류 변환 | ✅ |
 | 품질 게이트 | Ruff, mypy strict, pytest, 90% coverage, TypeScript, Docker smoke | ✅ |
-| 추가 공격·방어 | standard APGD/FAB/Square, adaptive/transfer defense 평가 | 🧭 |
+| 추가 공격·방어 | strength curve + restart 완료; standard APGD/FAB/Square·transfer 평가 | 🧭 |
 
 AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack-style ensemble + bit-depth defense + adversarial training/TRADES 연구
 MVP**입니다. 추가 공격과 방어를 구현하기 전에는 두 공격의 결과만으로 일반적인 강건성을

@@ -23,7 +23,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ AutoAttack-style deterministic FGSM/BIM/PGD ensemble adapter
    - ✅ deterministic epsilon strength-curve endpoint
    - Standard APGD/FAB/Square adapter
-   - epsilon/iteration strength curves and multiple restarts
+   - ✅ epsilon strength curves and bounded multiple restarts
    - algorithm별 independent numerical fixtures
 
 8. **Defense evaluation** *(in progress)*

@@ -207,6 +207,7 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
                 "algorithm": "pgd",
                 "epsilons": [0.02, 0.05],
                 "iterations": 1,
+                "restarts": 2,
                 "batch_size": 2,
                 "max_samples": 3,
                 "seed": 1729,
@@ -214,7 +215,7 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         )
         assert curve_response.status_code == 201
         curve = curve_response.json()
-        assert [point["config"]["epsilon"] for point in curve] == [0.02, 0.05]
+        assert [point["config"]["epsilon"] for point in curve] == [0.02, 0.02, 0.05, 0.05]
 
         defense_response = client.post(
             "/api/v1/registry/defenses",

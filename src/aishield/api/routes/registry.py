@@ -105,6 +105,7 @@ class AttackCurveRequest(RequestModel):
     epsilons: list[float] = Field(min_length=2, max_length=12)
     step_fraction: float = Field(default=0.25, gt=0.0, le=1.0)
     iterations: int = Field(default=10, ge=1, le=100)
+    restarts: int = Field(default=1, ge=1, le=8)
     seed: int = Field(default=1729, ge=0, le=4_294_967_295)
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
@@ -404,23 +405,24 @@ def run_attack_curve(
                 if is_fgsm or is_deepfool or is_cw
                 else epsilon * payload.step_fraction
             )
-            records.append(
-                registry.run_attack(
-                    payload.model_version_id,
-                    payload.dataset_id,
-                    config=AttackConfig(
-                        algorithm=payload.algorithm,
-                        norm="l2" if is_deepfool or is_cw else "linf",
-                        epsilon=epsilon,
-                        step_size=step_size,
-                        iterations=1 if is_fgsm else payload.iterations,
-                        random_start=not (is_fgsm or is_deepfool or is_cw or is_autoattack),
-                        seed=payload.seed,
-                        batch_size=payload.batch_size,
-                        max_samples=payload.max_samples,
-                    ),
+            for restart in range(payload.restarts):
+                records.append(
+                    registry.run_attack(
+                        payload.model_version_id,
+                        payload.dataset_id,
+                        config=AttackConfig(
+                            algorithm=payload.algorithm,
+                            norm="l2" if is_deepfool or is_cw else "linf",
+                            epsilon=epsilon,
+                            step_size=step_size,
+                            iterations=1 if is_fgsm else payload.iterations,
+                            random_start=not (is_fgsm or is_deepfool or is_cw or is_autoattack),
+                            seed=payload.seed + restart,
+                            batch_size=payload.batch_size,
+                            max_samples=payload.max_samples,
+                        ),
+                    )
                 )
-            )
         return records
     except (RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error

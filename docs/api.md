@@ -93,6 +93,10 @@ attack success rate, raw counts, maximum observed L∞/L2, clean/adversarial pre
 gradient status를 포함합니다. 입력 gradient가 모두 0이면 run은 실패로 꾸며지지 않고
 `gradient_status="flat"`과 warning을 반환합니다.
 
+`POST /registry/attack-curves`는 같은 모델·데이터에서 epsilon을 증가시키며 반복 실행합니다.
+`restarts`를 지정하면 각 epsilon을 seed를 증가시켜 여러 번 실행하므로, 결과를 곡선으로
+그리거나 restart별 최악값을 선택할 수 있습니다.
+
 ## Defense contract
 
 `POST /registry/defenses`는 현재 `bit_depth` 전처리 방어를 지원합니다. `bit_depth=4`는
