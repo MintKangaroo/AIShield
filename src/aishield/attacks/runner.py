@@ -89,10 +89,14 @@ def _attack_batch(
         adversarial = clean_inputs.clone()
 
     saw_nonzero_gradient = False
-    for _ in range(config.iterations):
+    for iteration in range(config.iterations):
         gradient = _gradient(adversarial, targets, model_bundle, loss_function)
         saw_nonzero_gradient = saw_nonzero_gradient or bool(torch.count_nonzero(gradient).item())
-        adversarial = adversarial.detach() + config.step_size * gradient.sign()
+        step_size = config.step_size
+        if config.algorithm is AttackAlgorithm.APGD and iteration >= config.iterations // 2:
+            # Deterministic cosine-free APGD schedule with two checkpoints.
+            step_size *= 0.5
+        adversarial = adversarial.detach() + step_size * gradient.sign()
         delta = (adversarial - clean_inputs).clamp(-config.epsilon, config.epsilon)
         adversarial = (clean_inputs + delta).clamp(0.0, 1.0).detach()
 
@@ -383,7 +387,7 @@ def run_adversarial_evaluation(
         raise RegistryError("dataset evaluation produced no samples")
 
     gradient_status: Literal["healthy", "flat"] = "healthy" if saw_nonzero_gradient else "flat"
-    warnings = (
+    warnings: tuple[str, ...] = (
         (
             (
                 "All observed input gradients were zero; investigate gradient masking or "
@@ -393,6 +397,11 @@ def run_adversarial_evaluation(
         if gradient_status == "flat"
         else ()
     )
+    if config.algorithm in (AttackAlgorithm.APGD, AttackAlgorithm.FAB, AttackAlgorithm.SQUARE):
+        warnings += (
+            "Compatibility adapter: this bounded implementation uses deterministic first-order "
+            "updates and is not a claim of parity with the original reference library.",
+        )
     metrics = AttackMetrics(
         clean_accuracy=clean_correct / total,
         robust_accuracy=robust_correct / total,

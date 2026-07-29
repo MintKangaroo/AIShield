@@ -60,7 +60,7 @@ dataset, environment, prediction fingerprint, matrix, accuracy, loss를 비교�
 
 ## Attack contract
 
-지원 algorithm은 `fgsm`, `bim`, `pgd`, `deepfool`, `cw`, `autoattack`입니다. FGSM/BIM/PGD/
+지원 algorithm은 `fgsm`, `bim`, `pgd`, `deepfool`, `cw`, `autoattack`, `apgd`, `fab`, `square`입니다. FGSM/BIM/PGD/
 AutoAttack은 `linf`, DeepFool/CW는 `l2` norm을 사용합니다.
 
 공통 request:
@@ -86,7 +86,8 @@ iteration에 `random_start=true`를 사용합니다. BIM은 iterative FGSM with 
 randomized start가 필요한 경우 PGD를 사용합니다. DeepFool default는 `norm=l2`,
 `step_size=epsilon`, `iterations=20`, `random_start=false`이고 CW default는 같은 norm에
 `iterations=50`, margin optimization을 사용합니다. AutoAttack은 deterministic FGSM/BIM/PGD
-ensemble로 각 표본의 최악 margin을 선택합니다. 표준 APGD/FAB/Square 조합과는 구분됩니다.
+ensemble로 각 표본의 최악 margin을 선택합니다. APGD/FAB/Square는 bounded deterministic
+compatibility adapter이며 원본 reference library와의 수치적 parity를 주장하지 않습니다.
 
 응답은 같은 sample population의 clean/robust accuracy, clean-correct denominator 기반
 attack success rate, raw counts, maximum observed L∞/L2, clean/adversarial prediction fingerprints,
