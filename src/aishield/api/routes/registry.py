@@ -251,7 +251,7 @@ def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> Baseline
     "/attacks",
     response_model=AttackRunRecord,
     status_code=status.HTTP_201_CREATED,
-    summary="Run a bounded FGSM, BIM, PGD, DeepFool, or Carlini-Wagner evaluation",
+    summary="Run a bounded FGSM, BIM, PGD, DeepFool, CW, or AutoAttack evaluation",
 )
 def run_attack(
     payload: AttackEvaluationRequest,
@@ -261,6 +261,7 @@ def run_attack(
     is_bim = payload.algorithm is AttackAlgorithm.BIM
     is_deepfool = payload.algorithm is AttackAlgorithm.DEEPFOOL
     is_cw = payload.algorithm is AttackAlgorithm.CARLINI_WAGNER
+    is_autoattack = payload.algorithm is AttackAlgorithm.AUTOATTACK
     try:
         config = AttackConfig(
             algorithm=payload.algorithm,
@@ -295,6 +296,8 @@ def run_attack(
                 if is_deepfool
                 else False
                 if is_cw
+                else False
+                if is_autoattack
                 else not is_fgsm
             ),
             seed=payload.seed,
