@@ -5,7 +5,7 @@
 ## 현재 브랜치와 범위
 
 - 작업 브랜치: `develop`
-- 최신 커밋: `a0dcb19 feat: add bounded background training jobs`
+- 최신 커밋: `16806be docs: update project handoff and roadmap`
 - 안정 기준: reproducible clean baseline + bounded attacks/defenses + dashboard + evidence API
 - Registry/run index: API process memory, metadata는 append-only journal에도 기록
 - Dataset/model/baseline artifact: configured local directory 또는 Docker volume
