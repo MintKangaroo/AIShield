@@ -45,7 +45,7 @@ flowchart LR
 
     API --> REG["1 · Registry<br/>dataset + model identity"]
     REG --> BASE["2 · Clean baseline<br/>accuracy · loss · matrix"]
-    BASE --> ATTACK["3 · Bounded attack<br/>FGSM · PGD"]
+    BASE --> ATTACK["3 · Bounded attack<br/>FGSM · BIM · PGD"]
     BASE --> COMPARE["4 · Paired metrics"]
     ATTACK --> COMPARE
     COMPARE --> EVIDENCE[("5 · Evidence bundle<br/>JSON · PNG · SHA-256")]
@@ -90,15 +90,15 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 | Model registry | seeded SmallCNN, allowlist torchvision model, weights-only checkpoint | ✅ |
 | Clean baseline | accuracy/loss, confusion matrix, class별 precision/recall, latency | ✅ |
 | 재현성 검증 | 동일 설정 재실행, 8개 deterministic evidence check | ✅ |
-| FGSM | single-step, L∞ bound, paired clean/robust metric | ✅ |
+| FGSM / BIM | single-step·iterative FGSM, L∞ bound, paired clean/robust metric | ✅ |
 | PGD | iterative projection, random start, configurable step/iteration | ✅ |
 | Evidence | JSON report, confusion matrix PNG, SHA-256, 안전한 다운로드 API | ✅ |
 | Dashboard | 등록·실행·비교·검증·artifact 다운로드를 지원하는 React console | ✅ |
 | API | strict request contract, OpenAPI/Swagger/ReDoc, 404/정책 오류 변환 | ✅ |
 | 품질 게이트 | Ruff, mypy strict, pytest, 90% coverage, TypeScript, Docker smoke | ✅ |
-| 추가 공격·방어 | BIM/DeepFool/CW/AutoAttack, adaptive/transfer defense 평가 | 🧭 |
+| 추가 공격·방어 | DeepFool/CW/AutoAttack, adaptive/transfer defense 평가 | 🧭 |
 
-AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/PGD 연구
+AIShield의 현재 완성 범위는 **재현 가능한 clean baseline + bounded FGSM/BIM/PGD 연구
 MVP**입니다. 추가 공격과 방어를 구현하기 전에는 두 공격의 결과만으로 일반적인 강건성을
 주장하지 않습니다.
 
@@ -129,7 +129,7 @@ flowchart LR
     A["Generate Signal-10"] --> B["Register seeded SmallCNN"]
     B --> C["Run clean baseline"]
     C --> D["Generate JSON + matrix evidence"]
-    D --> E["Run bounded FGSM"]
+    D --> E["Run bounded FGSM / BIM"]
     E --> F["Compare clean / robust"]
 ```
 
@@ -151,7 +151,7 @@ Dashboard는 소개용 landing page가 아니라 API와 연결된 연구 console
 
 - **Overview** — API/device 상태, clean·robust 성능, class recall, confusion matrix
 - **Baseline runs** — run ledger, 모델·dataset 연결, hash, latency, exact-rerun 검증
-- **Attack lab** — FGSM/PGD 생성, epsilon·iteration 설정, clean/robust/ASR 비교
+- **Attack lab** — FGSM/BIM/PGD 생성, epsilon·iteration 설정, clean/robust/ASR 비교
 - **Registry** — dataset provenance와 model state/artifact identity 확인
 - **Artifacts** — baseline JSON과 confusion matrix PNG 다운로드
 - **Guided onboarding** — dataset → model → baseline 순서가 비어 있으면 다음 작업을 안내
@@ -184,7 +184,7 @@ Dashboard는 소개용 landing page가 아니라 API와 연결된 연구 console
         <img src="docs/assets/dashboard-attack-lab.png" alt="AIShield bounded attack laboratory">
       </a>
       <br><strong>03 · Attack lab</strong>
-      <br><sub>FGSM/PGD의 epsilon과 iteration을 설정하고 paired clean/robust metric과 ASR을 비교합니다.</sub>
+      <br><sub>FGSM/BIM/PGD의 epsilon과 iteration을 설정하고 paired clean/robust metric과 ASR을 비교합니다.</sub>
     </td>
     <td width="50%">
       <a href="docs/assets/dashboard-registry.png">
@@ -264,7 +264,7 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/baselines \
 응답에는 scalar metric만이 아니라 confusion matrix, class metric, latency, prediction
 fingerprint, 환경 snapshot, artifact URI/hash가 포함됩니다.
 
-### 4. Bounded FGSM
+### 4. Bounded FGSM / BIM
 
 ```bash
 curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
@@ -280,8 +280,9 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
   }" | jq '.metrics'
 ```
 
-PGD는 `algorithm: "pgd"`와 함께 `step_size`, `iterations`, `random_start`를 지정할 수
-있습니다. 생략하면 `epsilon / 4`, `10 iterations`, random start가 적용됩니다.
+`algorithm: "bim"`은 `step_size`, `iterations`를 지정할 수 있고 random start를 사용하지
+않습니다. PGD는 `algorithm: "pgd"`와 함께 같은 parameter를 사용하며, 생략하면
+`epsilon / 4`, `10 iterations`, random start가 적용됩니다.
 
 ### Endpoint 요약
 
@@ -296,7 +297,7 @@ PGD는 `algorithm: "pgd"`와 함께 `step_size`, `iterations`, `random_start`를
 | `GET` | `/api/v1/registry/baselines/{id}` | baseline evidence |
 | `POST` | `/api/v1/registry/baselines/{id}/verify` | exact-config rerun |
 | `GET` | `/api/v1/registry/baselines/{id}/artifacts/{artifact_id}` | evidence download |
-| `POST / GET` | `/api/v1/registry/attacks` | FGSM/PGD run / list |
+| `POST / GET` | `/api/v1/registry/attacks` | FGSM/BIM/PGD run / list |
 | `GET` | `/api/v1/registry/attacks/{id}` | adversarial evidence |
 
 ## 🧱 아키텍처
@@ -310,7 +311,7 @@ flowchart TB
     REG --> DATA["Signal-10 / MNIST / CIFAR-10"]
     REG --> MODEL["SmallCNN / torchvision adapters"]
     REG --> BASE["Clean Baseline Engine"]
-    REG --> ATTACK["FGSM / PGD Engine"]
+    REG --> ATTACK["FGSM / BIM / PGD Engine"]
 
     BASE --> EVIDENCE[("JSON + PNG artifacts")]
     ATTACK --> METRIC["Paired clean / robust metrics"]
@@ -333,7 +334,7 @@ flowchart TB
 ```text
 src/aishield/
 ├── api/          # HTTP transport, request validation, OpenAPI
-├── attacks/      # FGSM/PGD contract와 bounded runner
+├── attacks/      # FGSM/BIM/PGD contract와 bounded runner
 ├── core/         # 환경 설정
 ├── evaluation/   # clean metric, environment snapshot, artifact renderer
 ├── registry/     # dataset/model adapter, safe loading, in-process orchestration
@@ -354,7 +355,7 @@ attack_success_rate = successful_attacks / clean_correct
 오답으로 바뀐 표본**입니다. clean-correct 표본이 0개이면 ASR은 `0.0`으로 기록하고 raw
 count를 함께 제공합니다.
 
-FGSM과 PGD는 raw input 공간에서 perturbation을 만들고 다음 조건을 수치로 재확인합니다.
+FGSM, BIM, PGD는 raw input 공간에서 perturbation을 만들고 다음 조건을 수치로 재확인합니다.
 
 ```text
 x_adv = clamp(x + delta, 0, 1)
@@ -465,12 +466,13 @@ AISHIELD_API_PROXY=http://localhost:18000 npm --prefix web run dev
 2. ✅ Clean baseline과 evidence artifact
 3. ✅ FGSM
 4. ✅ PGD
-5. 🧭 BIM, DeepFool, Carlini–Wagner, AutoAttack adapter
-6. 🧭 Adversarial training/TRADES/preprocessing defense
-7. 🧭 Adaptive attack, transferability, gradient-masking diagnostic 강화
-8. 🧭 Raw metric을 보존하는 versioned Robustness Score
-9. 🧭 PostgreSQL persistence와 Redis-backed isolated worker
-10. 🧭 이미지 평가와 분리된 LLM Security interface
+5. ✅ BIM
+6. 🧭 DeepFool, Carlini–Wagner, AutoAttack adapter
+7. 🧭 Adversarial training/TRADES/preprocessing defense
+8. 🧭 Adaptive attack, transferability, gradient-masking diagnostic 강화
+9. 🧭 Raw metric을 보존하는 versioned Robustness Score
+10. 🧭 PostgreSQL persistence와 Redis-backed isolated worker
+11. 🧭 이미지 평가와 분리된 LLM Security interface
 
 세부 완료 조건은 [Roadmap](docs/roadmap.md)에 정리되어 있습니다.
 

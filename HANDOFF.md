@@ -5,7 +5,7 @@
 ## 현재 브랜치와 범위
 
 - 작업 브랜치: `feat/clean-baseline`
-- 안정 기준: reproducible clean baseline + bounded FGSM/PGD + functional dashboard
+- 안정 기준: reproducible clean baseline + bounded FGSM/BIM/PGD + functional dashboard
 - Registry/run index: API process memory
 - Dataset/model/baseline artifact: configured local directory 또는 Docker volume
 - 공개 download: 기본 거부
@@ -19,7 +19,7 @@
 - exact-config baseline rerun 검증
 - artifact download endpoint와 root/symlink check
 - deterministic zero-download `Signal-10` adapter
-- bounded FGSM/PGD, paired metrics, L∞ verification, gradient warning
+- bounded FGSM/BIM/PGD, paired metrics, L∞ verification, gradient warning
 - dataset/model/baseline/attack/artifact를 조작하는 React dashboard
 - 실제 API run을 사용한 README screenshots와 screenshot automation
 
@@ -48,6 +48,7 @@ smoke는 Dashboard의 `Launch zero-download demo`로 dataset → model → basel
 - `robust_accuracy`는 adversarial input 전체 sample population의 accuracy입니다.
 - `attack_success_rate` 분모는 clean-correct sample입니다. Raw counts도 함께 보존합니다.
 - FGSM은 one step/no random start/step=epsilon 계약을 강제합니다.
+- BIM은 iterative FGSM이며 random start를 거부합니다.
 - PGD default는 step=`epsilon/4`, 10 iterations, random start입니다.
 - 모든 attack input은 finite `[0,1]` tensor여야 하며 projection 후 observed L∞를 검사합니다.
 - Flat gradient는 성공이 아니라 masking warning입니다.

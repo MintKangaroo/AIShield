@@ -392,10 +392,10 @@ function AttackForm({
       batch_size: batchSize,
       max_samples: maxSamples.trim() ? Number(maxSamples) : null,
     };
-    if (algorithm === "pgd") {
+    if (algorithm !== "fgsm") {
       payload.step_size = Math.min(2 / 255, epsilonValue);
       payload.iterations = iterations;
-      payload.random_start = true;
+      payload.random_start = algorithm === "pgd";
     }
     void onSubmit(payload);
   }
@@ -403,7 +403,7 @@ function AttackForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <div className="attack-picker" role="group" aria-label="Attack algorithm">
-        {(["fgsm", "pgd"] as const).map((item) => (
+        {(["fgsm", "bim", "pgd"] as const).map((item) => (
           <button
             className={algorithm === item ? "active" : ""}
             key={item}
@@ -412,7 +412,11 @@ function AttackForm({
           >
             <span>{item.toUpperCase()}</span>
             <small>
-              {item === "fgsm" ? "Fast single-step gradient attack" : "Iterative projected attack"}
+              {item === "fgsm"
+                ? "Fast single-step gradient attack"
+                : item === "bim"
+                  ? "Iterative attack without random start"
+                  : "Iterative projected attack with random start"}
             </small>
           </button>
         ))}
