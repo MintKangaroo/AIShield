@@ -26,6 +26,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/attacks` | Bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack run |
 | `GET` | `/api/v1/registry/attacks` | Attack run list |
 | `GET` | `/api/v1/registry/attacks/{id}` | Attack run evidence |
+| `POST` | `/api/v1/registry/attack-curves` | Same attack over increasing epsilon strengths |
 | `POST` | `/api/v1/registry/defenses` | Before/after preprocessing-defense evaluation |
 | `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
 | `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aishield.attacks.contracts import AttackAlgorithm, AttackConfig, AttackRunRecord
 from aishield.defenses.contracts import DefenseConfig, DefenseKind, DefenseRunRecord
@@ -94,6 +94,29 @@ class AttackEvaluationRequest(RequestModel):
     seed: int = Field(default=1729, ge=0, le=4_294_967_295)
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
+
+
+class AttackCurveRequest(RequestModel):
+    """Run one attack at multiple epsilon strengths for curve visualisation."""
+
+    model_version_id: UUID
+    dataset_id: UUID
+    algorithm: AttackAlgorithm = AttackAlgorithm.PGD
+    epsilons: list[float] = Field(min_length=2, max_length=12)
+    step_fraction: float = Field(default=0.25, gt=0.0, le=1.0)
+    iterations: int = Field(default=10, ge=1, le=100)
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
+
+    @field_validator("epsilons")
+    @classmethod
+    def validate_epsilons(cls, values: list[float]) -> list[float]:
+        if any(value <= 0.0 or value > 1.0 for value in values):
+            raise ValueError("epsilons must be in the (0, 1] interval")
+        if values != sorted(set(values)):
+            raise ValueError("epsilons must be strictly increasing")
+        return values
 
 
 class DefenseEvaluationRequest(RequestModel):
@@ -355,6 +378,52 @@ def run_attack(
 )
 def list_attacks(registry: RegistryDependency) -> list[AttackRunRecord]:
     return registry.list_attacks()
+
+
+@router.post(
+    "/attack-curves",
+    response_model=list[AttackRunRecord],
+    status_code=status.HTTP_201_CREATED,
+    summary="Run a deterministic attack strength curve",
+)
+def run_attack_curve(
+    payload: AttackCurveRequest,
+    registry: RegistryDependency,
+) -> list[AttackRunRecord]:
+    """Evaluate the same population at increasing epsilon values."""
+
+    is_fgsm = payload.algorithm is AttackAlgorithm.FGSM
+    is_deepfool = payload.algorithm is AttackAlgorithm.DEEPFOOL
+    is_cw = payload.algorithm is AttackAlgorithm.CARLINI_WAGNER
+    is_autoattack = payload.algorithm is AttackAlgorithm.AUTOATTACK
+    records: list[AttackRunRecord] = []
+    try:
+        for epsilon in payload.epsilons:
+            step_size = (
+                epsilon
+                if is_fgsm or is_deepfool or is_cw
+                else epsilon * payload.step_fraction
+            )
+            records.append(
+                registry.run_attack(
+                    payload.model_version_id,
+                    payload.dataset_id,
+                    config=AttackConfig(
+                        algorithm=payload.algorithm,
+                        norm="l2" if is_deepfool or is_cw else "linf",
+                        epsilon=epsilon,
+                        step_size=step_size,
+                        iterations=1 if is_fgsm else payload.iterations,
+                        random_start=not (is_fgsm or is_deepfool or is_cw or is_autoattack),
+                        seed=payload.seed,
+                        batch_size=payload.batch_size,
+                        max_samples=payload.max_samples,
+                    ),
+                )
+            )
+        return records
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
 
 
 @router.get(

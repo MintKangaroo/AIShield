@@ -199,6 +199,23 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert autoattack["metrics"]["maximum_observed_linf"] <= 0.1 + 1e-6
         assert len(client.get("/api/v1/registry/attacks").json()) == 5
 
+        curve_response = client.post(
+            "/api/v1/registry/attack-curves",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "pgd",
+                "epsilons": [0.02, 0.05],
+                "iterations": 1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert curve_response.status_code == 201
+        curve = curve_response.json()
+        assert [point["config"]["epsilon"] for point in curve] == [0.02, 0.05]
+
         defense_response = client.post(
             "/api/v1/registry/defenses",
             json={
