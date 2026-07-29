@@ -117,8 +117,14 @@ gradient status를 포함합니다. 입력 gradient가 모두 0이면 run은 실
 robust metric을 `TrainingRunRecord`로 보존합니다. `step_size`는 `epsilon`보다 클 수
 없고, `max_samples`로 데모·CI 실행 규모를 제한할 수 있습니다.
 
+## Persistence boundary
+
+Every loaded registry record and completed run is appended to
+`<artifact_root>/registry/journal.jsonl` with canonical JSON and flushed immediately.
+The journal is an audit/export boundary for future PostgreSQL and worker migration; live
+PyTorch objects remain process-local and are never serialized into the journal.
+
 ## Runtime boundary
 
-Registry handle과 run index는 process-local입니다. API 재시작 후 list가 초기화되지만
-dataset/model/baseline artifact 파일은 configured storage에 남습니다. PostgreSQL/Redis는
-향후 persistence/worker 경계이며 현재 endpoint readiness에 포함되지 않습니다.
+Registry handle과 live run index는 process-local입니다. metadata journal과 model/dataset
+artifact는 configured storage에 남으며, PostgreSQL/Redis worker migration은 다음 운영 단계입니다.

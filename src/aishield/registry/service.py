@@ -34,6 +34,7 @@ from aishield.registry.datasets import (
 )
 from aishield.registry.errors import RegistryError, RegistryNotFoundError
 from aishield.registry.evaluation import evaluate_registered_model
+from aishield.registry.journal import RegistryJournal
 from aishield.registry.models import ModelBundle, SmallCNNAdapter, TorchvisionPretrainedAdapter
 from aishield.training.contracts import TrainingConfig, TrainingRunRecord
 from aishield.training.runner import train_model
@@ -63,6 +64,7 @@ class RegistryService:
         self._defenses: dict[UUID, DefenseRunRecord] = {}
         self._transfers: dict[UUID, TransferDefenseRunRecord] = {}
         self._training: dict[UUID, TrainingRunRecord] = {}
+        self._journal = RegistryJournal(settings.artifact_root)
         self._lock = RLock()
 
     def load_dataset(
@@ -76,6 +78,7 @@ class RegistryService:
         bundle = adapter.load(self.settings.dataset_root, split, download=download)
         with self._lock:
             self._datasets[bundle.record.id] = bundle
+        self._journal.append("dataset", bundle.record)
         return bundle.record
 
     def load_small_cnn(
@@ -97,6 +100,7 @@ class RegistryService:
         )
         with self._lock:
             self._models[bundle.record.id] = bundle
+        self._journal.append("model", bundle.record)
         return bundle.record
 
     def load_torchvision_model(
@@ -122,6 +126,7 @@ class RegistryService:
         )
         with self._lock:
             self._models[bundle.record.id] = bundle
+        self._journal.append("model", bundle.record)
         return bundle.record
 
     def evaluate(
@@ -160,6 +165,7 @@ class RegistryService:
         )
         with self._lock:
             self._baselines[record.id] = record
+        self._journal.append("baseline", record)
         return record
 
     def verify_clean_baseline(self, baseline_id: UUID) -> BaselineVerification:
@@ -189,6 +195,7 @@ class RegistryService:
         )
         with self._lock:
             self._attacks[record.id] = record
+        self._journal.append("attack", record)
         return record
 
     def run_defense(
@@ -209,6 +216,7 @@ class RegistryService:
         )
         with self._lock:
             self._defenses[record.id] = record
+        self._journal.append("defense", record)
         return record
 
     def list_datasets(self) -> list[DatasetRecord]:
@@ -259,6 +267,7 @@ class RegistryService:
         )
         with self._lock:
             self._transfers[record.id] = record
+        self._journal.append("transfer", record)
         return record
 
     def list_transfers(self) -> list[TransferDefenseRunRecord]:
@@ -285,6 +294,8 @@ class RegistryService:
         with self._lock:
             self._models[bundle.record.id] = bundle
             self._training[record.id] = record
+        self._journal.append("model", bundle.record)
+        self._journal.append("training", record)
         return bundle.record, record, bundle
 
     def list_training(self) -> list[TrainingRunRecord]:
