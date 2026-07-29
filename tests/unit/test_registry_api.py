@@ -267,6 +267,23 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert journal.status_code == 200
         assert any(entry["kind"] == "attack" for entry in journal.json())
 
+        queued_job = client.post(
+            "/api/v1/registry/training/jobs",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "strategy": "adversarial_training",
+                "epochs": 1,
+                "batch_size": 2,
+                "max_samples": 1,
+                "attack_iterations": 1,
+                "seed": 1729,
+            },
+        )
+        assert queued_job.status_code == 202
+        job_id = queued_job.json()["id"]
+        assert client.get(f"/api/v1/registry/jobs/{job_id}").status_code == 200
+
         training_response = client.post(
             "/api/v1/registry/training",
             json={
@@ -289,7 +306,7 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert training["config"]["strategy"] == "trades"
         assert training["metrics"]["training_samples"] == 3
         assert len(training["model_state_sha256"]) == 64
-        assert len(client.get("/api/v1/registry/training").json()) == 1
+        assert len(client.get("/api/v1/registry/training").json()) >= 1
 
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:

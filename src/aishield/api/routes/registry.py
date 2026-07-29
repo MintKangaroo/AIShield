@@ -20,6 +20,7 @@ from aishield.evaluation.contracts import (
     BaselineVerification,
 )
 from aishield.evaluation.score import RobustnessScore, calculate_score
+from aishield.jobs.contracts import JobRecord
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -613,6 +614,47 @@ def train_registered_model(
 )
 def list_training(registry: RegistryDependency) -> list[TrainingRunRecord]:
     return registry.list_training()
+
+
+@router.post(
+    "/training/jobs",
+    response_model=JobRecord,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Queue adversarial training as a bounded background job",
+)
+def queue_training(payload: TrainingRequest, registry: RegistryDependency) -> JobRecord:
+    try:
+        return registry.submit_training_job(
+            payload.model_version_id,
+            payload.dataset_id,
+            config=TrainingConfig(
+                strategy=payload.strategy,
+                seed=payload.seed,
+                epochs=payload.epochs,
+                batch_size=payload.batch_size,
+                max_samples=payload.max_samples,
+                epsilon=payload.epsilon,
+                step_size=payload.step_size,
+                attack_iterations=payload.attack_iterations,
+                learning_rate=payload.learning_rate,
+                trades_beta=payload.trades_beta,
+            ),
+        )
+    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get("/jobs", response_model=list[JobRecord], summary="List bounded background jobs")
+def list_jobs(registry: RegistryDependency) -> list[JobRecord]:
+    return registry.list_jobs()
+
+
+@router.get("/jobs/{job_id}", response_model=JobRecord, summary="Get one background job")
+def get_job(job_id: UUID, registry: RegistryDependency) -> JobRecord:
+    try:
+        return registry.get_job(job_id)
+    except RegistryNotFoundError as error:
+        raise _translate_registry_error(error) from error
 
 
 @router.get(

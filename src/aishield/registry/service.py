@@ -18,6 +18,8 @@ from aishield.evaluation.contracts import (
     BaselineVerification,
 )
 from aishield.evaluation.runner import run_clean_baseline, verify_baseline_rerun
+from aishield.jobs.contracts import JobRecord
+from aishield.jobs.queue import JobQueue
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -65,6 +67,7 @@ class RegistryService:
         self._transfers: dict[UUID, TransferDefenseRunRecord] = {}
         self._training: dict[UUID, TrainingRunRecord] = {}
         self._journal = RegistryJournal(settings.artifact_root)
+        self._jobs = JobQueue(max_workers=2)
         self._lock = RLock()
 
     def load_dataset(
@@ -308,6 +311,25 @@ class RegistryService:
         """Return append-only metadata entries for audit/export consumers."""
 
         return self._journal.read()
+
+    def submit_training_job(
+        self, model_id: UUID, dataset_id: UUID, *, config: TrainingConfig
+    ) -> JobRecord:
+        """Queue training without blocking the API worker."""
+
+        return self._jobs.submit(
+            "training",
+            lambda: self.train_model(model_id, dataset_id, config=config)[1].id,
+        )
+
+    def get_job(self, job_id: UUID) -> JobRecord:
+        try:
+            return self._jobs.get(job_id)
+        except KeyError as error:
+            raise RegistryNotFoundError(f"job is not loaded: {job_id}") from error
+
+    def list_jobs(self) -> list[JobRecord]:
+        return self._jobs.list()
 
     def get_baseline(self, baseline_id: UUID) -> BaselineRunRecord:
         """Return a completed baseline or raise a domain-level not-found error."""

@@ -36,6 +36,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
 9. **Persistence and isolation**
    - ✅ append-only JSON metadata journal and flush boundary
    - ✅ journal read/audit API
+   - ✅ bounded in-process worker queue and job status API
    - PostgreSQL registry/run metadata
    - Redis-backed job queue and resource-bounded worker
    - process restart recovery and artifact garbage-collection policy

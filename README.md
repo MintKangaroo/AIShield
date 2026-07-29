@@ -117,6 +117,7 @@ AIShield는 모든 평가에서 다음 불변식을 지킵니다.
 | Robustness score | versioned mean score with attack IDs and evidence coverage | ✅ |
 | Evidence | JSON report, confusion matrix PNG, SHA-256, 안전한 다운로드 API | ✅ |
 | Metadata persistence | append-only canonical JSON journal for registry/run metadata | ✅ |
+| Background jobs | bounded training queue with queued/running/succeeded/failed status | ✅ |
 | Dashboard | 등록·실행·비교·검증·artifact 다운로드를 지원하는 React console | ✅ |
 | API | strict request contract, OpenAPI/Swagger/ReDoc, 404/정책 오류 변환 | ✅ |
 | 품질 게이트 | Ruff, mypy strict, pytest, 90% coverage, TypeScript, Docker smoke | ✅ |
