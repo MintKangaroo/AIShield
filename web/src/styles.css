@@ -1309,6 +1309,20 @@ main {
   align-items: start;
 }
 
+.curve-card {
+  grid-column: 1 / -1;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+}
+
+.curve-chart { width: 100%; min-height: 180px; color: var(--accent); }
+.curve-axis { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+.curve-line { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+.curve-chart circle { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+.curve-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: .75rem; }
+
 .runs-panel {
   overflow: hidden;
 }

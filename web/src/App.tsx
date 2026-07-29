@@ -844,6 +844,41 @@ function AttackTable({
   );
 }
 
+function StrengthCurve({ runs }: { runs: AttackRunRecord[] }) {
+  if (!runs.length) return null;
+  const points = [...runs].sort((left, right) => left.config.epsilon - right.config.epsilon);
+  const width = 520;
+  const height = 180;
+  const pad = 28;
+  const minEpsilon = points[0].config.epsilon;
+  const maxEpsilon = points[points.length - 1].config.epsilon || 1;
+  const x = (epsilon: number) =>
+    pad + ((epsilon - minEpsilon) / Math.max(maxEpsilon - minEpsilon, 1e-6)) * (width - pad * 2);
+  const y = (accuracy: number) => height - pad - accuracy * (height - pad * 2);
+  const path = points.map((run, index) => `${index ? "L" : "M"}${x(run.config.epsilon)},${y(run.metrics.robust_accuracy)}`).join(" ");
+  return (
+    <div className="curve-card">
+      <div className="panel-heading">
+        <div>
+          <span className="kicker">Strength curve</span>
+          <h3>{points[0].config.algorithm.toUpperCase()} robust accuracy</h3>
+        </div>
+        <span className="mono faint">{points.length} evidence points</span>
+      </div>
+      <svg aria-label="Robust accuracy by epsilon" className="curve-chart" role="img" viewBox={`0 0 ${width} ${height}`}>
+        <path className="curve-axis" d={`M${pad},${pad}V${height - pad}H${width - pad}`} />
+        <path className="curve-line" d={path} />
+        {points.map((run) => (
+          <circle cx={x(run.config.epsilon)} cy={y(run.metrics.robust_accuracy)} key={run.id} r="4">
+            <title>{`ε ${run.config.epsilon.toFixed(4)} · ${formatPercent(run.metrics.robust_accuracy)}`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="curve-legend"><span>robust accuracy</span><span>ε {minEpsilon.toFixed(3)} → {maxEpsilon.toFixed(3)}</span></div>
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = useState<Page>("overview");
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -852,6 +887,7 @@ function App() {
   const [models, setModels] = useState<ModelVersionRecord[]>([]);
   const [baselines, setBaselines] = useState<BaselineRunRecord[]>([]);
   const [attacks, setAttacks] = useState<AttackRunRecord[]>([]);
+  const [curveRuns, setCurveRuns] = useState<AttackRunRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAttackId, setSelectedAttackId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogName>(null);
@@ -949,6 +985,25 @@ function App() {
       setSelectedAttackId(attack.id);
       setPage("attacks");
     }, `${payload.algorithm.toUpperCase()} evaluation completed within the configured bound.`);
+  }
+
+  async function createCurve() {
+    if (!attackModel || !attackDataset) return;
+    await perform(async () => {
+      const runs = await api.runAttackCurve({
+        model_version_id: attackModel.id,
+        dataset_id: attackDataset.id,
+        algorithm: "pgd",
+        epsilons: [2 / 255, 4 / 255, 8 / 255, 16 / 255],
+        step_fraction: 0.25,
+        iterations: 5,
+        restarts: 1,
+        seed: 1729,
+        batch_size: 64,
+        max_samples: 256,
+      });
+      setCurveRuns(runs);
+    }, "Attack strength curve completed.");
   }
 
   async function loadDataset(payload: {
@@ -1456,6 +1511,9 @@ function App() {
                 <button className="button secondary compact" type="button" onClick={openAttackDialog}>
                   <Icon name="spark" size={15} /> Run attack
                 </button>
+                <button className="button ghost compact" type="button" onClick={() => void createCurve()} disabled={!attackModel || !attackDataset || busy}>
+                  <Icon name="activity" size={15} /> Strength curve
+                </button>
               </div>
               <AttackTable
                 attacks={attacks}
@@ -1589,6 +1647,7 @@ function App() {
                 </div>
               )}
             </aside>
+            {curveRuns.length > 0 && <StrengthCurve runs={curveRuns} />}
           </div>
         )}
 

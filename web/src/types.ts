@@ -184,6 +184,19 @@ export interface AttackRequest {
   max_samples: number | null;
 }
 
+export interface AttackCurveRequest {
+  model_version_id: string;
+  dataset_id: string;
+  algorithm: "pgd" | "apgd" | "fab" | "square";
+  epsilons: number[];
+  step_fraction: number;
+  iterations: number;
+  restarts: number;
+  seed: number;
+  batch_size: number;
+  max_samples: number | null;
+}
+
 export type TrainingStrategy = "adversarial_training" | "trades";
 
 export interface TrainingRunRecord {

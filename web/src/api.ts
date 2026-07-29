@@ -1,5 +1,6 @@
 import type {
   AttackRequest,
+  AttackCurveRequest,
   AttackRunRecord,
   BaselineRequest,
   BaselineRunRecord,
@@ -62,6 +63,8 @@ export const api = {
     post<BaselineRunRecord>(`${registryPath}/baselines`, payload),
   runAttack: (payload: AttackRequest) =>
     post<AttackRunRecord>(`${registryPath}/attacks`, payload),
+  runAttackCurve: (payload: AttackCurveRequest) =>
+    post<AttackRunRecord[]>(`${registryPath}/attack-curves`, payload),
   runTraining: (payload: TrainingRequest) =>
     post<TrainingRunRecord>(`${registryPath}/training`, payload),
   verifyBaseline: (baselineId: string) =>
