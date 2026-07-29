@@ -22,10 +22,10 @@ Paths and URIs may identify local objects but must not embed credentials.
 
 ## Determinism
 
-Evaluation code will seed Python, NumPy, PyTorch CPU, and all CUDA devices from the recorded seed.
-DataLoader generators and workers receive derived, recorded seeds. Deterministic PyTorch algorithms
-are enabled where supported, benchmark-based cuDNN selection is disabled, and known nondeterministic
-operations must fail or be called out in the result.
+Evaluation code seeds Python, NumPy, PyTorch CPU, and all CUDA devices from the recorded seed.
+DataLoader generators receive the recorded seed and current evaluation uses `num_workers=0`.
+Deterministic PyTorch algorithms are enabled, benchmark-based cuDNN selection is disabled, and known
+nondeterministic operations must fail or be called out in the result.
 
 GPU kernels and dependency changes can still cause numerical differences. Same-environment reruns
 must match discrete predictions and artifact hashes where deterministic operations are available;

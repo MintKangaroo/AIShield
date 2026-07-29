@@ -1,23 +1,53 @@
 # Roadmap
 
-1. **Foundation (complete)** — API/package structure, dashboard shell, Compose, quality gates, reproducibility
-   policy, and experiment result schema.
-2. **Registry (complete)** — MNIST/CIFAR-10 adapters, a small CNN, torchvision adapters, checksums, split and
-   seed records, and model evaluation API.
-3. **Clean baseline** — accuracy, loss, confusion matrix, per-class precision/recall, latency,
-   artifacts, and same-seed rerun checks.
-4. **FGSM** — bounded untargeted attack first, gradient validation, comparison artifacts, paired
-   clean/robust metrics, and algorithm documentation.
-5. **PGD** — validated epsilon/alpha/iteration parameters, random starts, L-infinity bounds,
-   strength curves, and FGSM comparison.
-6. **Additional attacks** — BIM, DeepFool, Carlini-Wagner, and an AutoAttack adapter behind the
-   common attack interface, each with independent numerical tests.
-7. **Defense evaluation** — adversarial training, TRADES adapter, preprocessing baseline,
-   transferability, adaptive reevaluation, and gradient-masking checks.
-8. **Robustness score** — a documented versioned formula with all raw metric inputs retained.
-9. **Dashboard** — experiment/model comparisons, parameters, curves, samples, matrices, defense
-   comparisons, and export.
-10. **LLM security design** — interfaces and roadmap only, with execution and metrics separated from
-    image-model evaluation.
+AIShield는 headline score보다 검증 가능한 연구 근거를 우선합니다. 각 milestone은 strict
+contract, numerical test, API test, documentation을 함께 완료해야 합니다.
 
-Each milestone is committed independently after its tests and static checks pass.
+## 완료
+
+1. **Foundation** — FastAPI/React/Compose, versioned schema, CI, security/reproducibility policy.
+2. **Registry** — Signal-10/MNIST/CIFAR-10, SmallCNN/torchvision, safe checkpoint, content hashes.
+3. **Clean baseline** — accuracy, loss, confusion matrix, per-class metric, latency, JSON/PNG
+   artifacts, same-seed rerun verification.
+4. **FGSM** — input-range validation, L∞ projection, paired clean/robust metric, gradient health.
+5. **PGD** — validated epsilon/step/iterations, random start, iterative projection, raw counts.
+6. **Research dashboard MVP** — guided registry, baseline/attack execution, run inspection,
+   confusion matrix, reproducibility verification, artifact downloads, responsive layout.
+
+## 다음
+
+7. **Additional attacks**
+   - BIM, DeepFool, Carlini–Wagner
+   - AutoAttack adapter behind the common interface
+   - epsilon/iteration strength curves and multiple restarts
+   - algorithm별 independent numerical fixtures
+
+8. **Defense evaluation**
+   - adversarial training and TRADES checkpoint adapters
+   - preprocessing defense baseline
+   - transfer attack and defense-aware adaptive reevaluation
+   - iterative-vs-single-step and black-box-vs-white-box masking diagnostics
+
+9. **Persistence and isolation**
+   - PostgreSQL registry/run metadata
+   - Redis-backed job queue and resource-bounded worker
+   - process restart recovery and artifact garbage-collection policy
+   - CPU/CUDA worker image digest pinning
+
+10. **Transparent robustness score**
+    - versioned public formula
+    - raw input metrics retained alongside every component
+    - missing/invalid attack evidence cannot silently improve the score
+
+11. **Dashboard expansion**
+    - strength curves, run-to-run comparison, sample triplets
+    - defense before/after/adaptive view
+    - portable experiment export/import
+
+12. **Separate LLM security design**
+    - image engine과 분리된 threat/metric contract
+    - prompt/response privacy controls
+    - 실행 기능 전에 authorization과 benchmark policy 확정
+
+추가 attack이나 defense 하나의 결과만으로 보편적인 강건성을 주장하지 않습니다. 다음
+milestone으로 이동하기 전에 이전 단계의 raw metric과 quality gate가 유지되어야 합니다.

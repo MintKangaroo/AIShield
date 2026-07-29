@@ -21,7 +21,7 @@ def evaluate_registered_model(
     batch_size: int,
     max_samples: int | None,
 ) -> EvaluationResult:
-    """Return basic clean accuracy and loss without stage 3 reporting artifacts."""
+    """Return basic clean accuracy and loss without detailed baseline artifacts."""
 
     if batch_size <= 0:
         raise RegistryError("batch_size must be positive")

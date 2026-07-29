@@ -64,6 +64,64 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert len(client.get("/api/v1/registry/datasets").json()) == 1
         assert len(client.get("/api/v1/registry/models").json()) == 1
 
+        baseline_response = client.post(
+            "/api/v1/registry/baselines",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "seed": 1729,
+                "batch_size": 2,
+                "max_samples": 3,
+                "warmup_batches": 1,
+            },
+        )
+        assert baseline_response.status_code == 201
+        baseline = baseline_response.json()
+        assert baseline["metrics"]["evaluated_samples"] == 3
+        assert baseline["metrics"]["robust_accuracy"] is None
+        assert len(baseline["metrics"]["confusion_matrix"]) == 10
+        assert len(baseline["metrics"]["per_class"]) == 10
+        assert len(baseline["artifacts"]) == 2
+        image_artifact = next(
+            artifact for artifact in baseline["artifacts"] if artifact["kind"] == "confusion_matrix"
+        )
+        artifact_response = client.get(
+            f"/api/v1/registry/baselines/{baseline['id']}/artifacts/{image_artifact['id']}"
+        )
+        assert artifact_response.status_code == 200
+        assert artifact_response.headers["content-type"] == "image/png"
+        assert artifact_response.content.startswith(b"\x89PNG\r\n\x1a\n")
+        assert len(client.get("/api/v1/registry/baselines").json()) == 1
+        assert (
+            client.get(f"/api/v1/registry/baselines/{baseline['id']}").json()["id"]
+            == baseline["id"]
+        )
+
+        verification_response = client.post(f"/api/v1/registry/baselines/{baseline['id']}/verify")
+        assert verification_response.status_code == 200
+        assert verification_response.json()["reproducible"] is True
+        assert len(client.get("/api/v1/registry/baselines").json()) == 2
+
+        attack_response = client.post(
+            "/api/v1/registry/attacks",
+            json={
+                "model_version_id": model["id"],
+                "dataset_id": dataset["id"],
+                "algorithm": "fgsm",
+                "epsilon": 0.1,
+                "batch_size": 2,
+                "max_samples": 3,
+                "seed": 1729,
+            },
+        )
+        assert attack_response.status_code == 201
+        attack = attack_response.json()
+        assert attack["metrics"]["evaluated_samples"] == 3
+        assert 0.0 <= attack["metrics"]["robust_accuracy"] <= 1.0
+        assert attack["metrics"]["maximum_observed_linf"] <= 0.1 + 1e-6
+        assert len(client.get("/api/v1/registry/attacks").json()) == 1
+        assert client.get(f"/api/v1/registry/attacks/{attack['id']}").json()["id"] == attack["id"]
+
 
 def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> None:
     settings = Settings(
@@ -91,8 +149,14 @@ def test_registry_api_enforces_download_policy_and_not_found(tmp_path: Path) -> 
             "/api/v1/registry/models/torchvision",
             json={"architecture": "resnet18", "weights": "DEFAULT", "seed": 1},
         )
+        missing_baseline = client.get(f"/api/v1/registry/baselines/{uuid4()}")
+        missing_artifact = client.get(f"/api/v1/registry/baselines/{uuid4()}/artifacts/{uuid4()}")
+        missing_attack = client.get(f"/api/v1/registry/attacks/{uuid4()}")
 
     assert denied.status_code == 400
     assert "not approved" in denied.json()["detail"]
     assert missing.status_code == 404
     assert pretrained.status_code == 400
+    assert missing_baseline.status_code == 404
+    assert missing_artifact.status_code == 404
+    assert missing_attack.status_code == 404

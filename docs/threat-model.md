@@ -15,25 +15,30 @@ queue payloads.
 - A downloaded public dataset is permitted only after its source is approved and its version or
   manifest checksum is recorded.
 
-## Initial controls
+## Implemented controls
 
-- No model deserialization, dataset download, or attack execution exists in stage 1.
-- Result contracts reject unknown fields and broken cross-experiment references.
-- Dataset records require `local` or `approved_public` provenance and explicit approval.
-- Model and artifact records require SHA-256 content hashes.
-- The API container runs as a non-root user; secrets and generated artifacts are ignored by Git.
-- GitHub Actions receives read-only repository permissions.
+- Result and request contracts reject unknown fields and broken cross-experiment references.
+- Public datasets use fixed built-in sources and require an operator-level download opt-in.
+- The default synthetic adapter is generated locally and is explicitly marked non-benchmark data.
+- Checkpoints resolve below a configured root, reject symlinks/path traversal, and load with
+  `weights_only=True` plus strict key/shape matching.
+- Dataset manifest, model state/artifact, prediction sequence, and generated artifact use SHA-256.
+- FGSM/PGD validate finite raw inputs in `[0,1]`, clamp outputs, project perturbations, and
+  numerically check the observed L-infinity bound.
+- Attack responses keep clean and robust accuracy together and expose raw denominator/counts.
+- Zero input gradients produce a masking warning rather than a robustness claim.
+- Artifact downloads require a record owned by the requested run and a regular file below the
+  configured artifact root.
+- API container runs as a non-root user; secrets, raw data, weights, and generated artifacts are
+  ignored by Git. GitHub Actions uses read-only repository permissions.
 
-## Planned ML-specific controls
+## Remaining controls
 
-- Prefer weights-only state dictionaries or safe tensor formats; never accept arbitrary pickle data
-  as a trusted model artifact.
-- Clamp adversarial inputs to the valid normalized input range and numerically verify norm bounds.
-- Run untrusted evaluation inputs in resource-constrained workers with time, memory, and sample caps.
-- Treat preprocessing defenses and unexpectedly flat gradients as possible gradient masking.
-- Compare stronger iterative attacks, transfer attacks, random restarts, and adaptive attacks before
-  claiming robustness.
-- Store clean accuracy beside robust accuracy so a defense cannot hide utility collapse.
+- Move evaluation to resource-constrained workers with time, memory, concurrency, and sample caps.
+- Add transfer/adaptive attacks, multiple restarts, and strength monotonicity checks before defense
+  claims.
+- Add artifact retention, recovery, and authenticated multi-user authorization before deployment
+  outside a trusted local research environment.
 
 ## Out of scope
 

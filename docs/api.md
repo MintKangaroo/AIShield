@@ -1,31 +1,89 @@
 # API
 
-All application endpoints live under `/api/v1`. FastAPI serves OpenAPI at `/api/openapi.json`,
-Swagger UI at `/api/docs`, and ReDoc at `/api/redoc`.
+AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 
-## Endpoints in stage 1
+- OpenAPI JSON: `/api/openapi.json`
+- Swagger UI: `/api/docs`
+- ReDoc: `/api/redoc`
+
+## Endpoints
 
 | Method | Path | Meaning |
 | --- | --- | --- |
-| `GET` | `/api/v1` | Service version and release scope |
-| `GET` | `/api/v1/health/live` | Process liveness and configured compute device |
-| `POST` | `/api/v1/registry/datasets` | Load an approved MNIST/CIFAR-10 split |
-| `GET` | `/api/v1/registry/datasets` | List datasets loaded in this API process |
-| `POST` | `/api/v1/registry/models/small-cnn` | Create or restore a dataset-compatible CNN |
-| `POST` | `/api/v1/registry/models/torchvision` | Load an allowlisted torchvision classifier |
-| `GET` | `/api/v1/registry/models` | List models loaded in this API process |
-| `POST` | `/api/v1/registry/evaluations` | Run a bounded basic clean evaluation |
+| `GET` | `/api/v1` | Service version과 release scope |
+| `GET` | `/api/v1/health/live` | Process liveness와 configured device |
+| `POST` | `/api/v1/registry/datasets` | Built-in dataset split load |
+| `GET` | `/api/v1/registry/datasets` | 현재 process의 dataset list |
+| `POST` | `/api/v1/registry/models/small-cnn` | Seeded/checkpoint SmallCNN load |
+| `POST` | `/api/v1/registry/models/torchvision` | Allowlist torchvision model load |
+| `GET` | `/api/v1/registry/models` | 현재 process의 model list |
+| `POST` | `/api/v1/registry/evaluations` | Legacy bounded clean compatibility check |
+| `POST` | `/api/v1/registry/baselines` | Full clean baseline과 artifact 생성 |
+| `GET` | `/api/v1/registry/baselines` | Baseline list |
+| `GET` | `/api/v1/registry/baselines/{id}` | Baseline evidence |
+| `POST` | `/api/v1/registry/baselines/{id}/verify` | Exact-config rerun과 evidence 비교 |
+| `GET` | `/api/v1/registry/baselines/{id}/artifacts/{artifact_id}` | Registered artifact download |
+| `POST` | `/api/v1/registry/attacks` | Bounded FGSM/PGD run |
+| `GET` | `/api/v1/registry/attacks` | Attack run list |
+| `GET` | `/api/v1/registry/attacks/{id}` | Attack run evidence |
 
-Liveness does not imply PostgreSQL or Redis readiness. Dependency checks will be introduced with
-the adapters that use them, preventing a misleading healthy response.
+Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
+거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
+404입니다.
 
-Registry entries are currently process-local and disappear when the API restarts. Model artifacts
-and dataset files persist in configured storage. PostgreSQL persistence belongs to a later milestone.
+## Dataset policy
 
-The basic evaluation endpoint validates model input channels and class count, fixes the requested
-seed, disables shuffle, and supports `max_samples`. It intentionally does not claim adversarial
-robustness: `robust_accuracy` is always `null` with status `not_evaluated` until an attack runs.
+`synthetic` adapter는 다운로드 없이 deterministic `Signal-10`을 만듭니다. `mnist`와
+`cifar10`은 고정된 torchvision source만 사용하며 `download=true`는
+`AISHIELD_ALLOW_PUBLIC_DOWNLOADS=true`일 때만 허용됩니다. API caller가 URL을 전달하는
+endpoint는 없습니다.
 
-Attack, defense, detailed baseline artifact, and export endpoints belong to later milestones. New
-endpoints must use typed request/response models, reject unknown fields at trust boundaries, and
-remain backward compatible within an API version.
+## Baseline contract
+
+Baseline은 clean accuracy/loss뿐 아니라 다음을 반환합니다.
+
+- confusion matrix와 class별 precision/recall/support
+- warm-up과 measured batch를 구분한 latency
+- ordered target/prediction SHA-256
+- model state/artifact와 dataset manifest SHA-256
+- dependency/device/Git/container environment snapshot
+- JSON report와 confusion matrix PNG artifact record
+
+`POST /baselines/{id}/verify`는 원본 설정으로 새 run을 만들고 configuration, model,
+dataset, environment, prediction fingerprint, matrix, accuracy, loss를 비교합니다. Latency는
+기록하지만 pass/fail에서 제외합니다.
+
+## Attack contract
+
+지원 algorithm은 `fgsm`, `pgd`이고 현재 norm은 `linf`입니다.
+
+공통 request:
+
+```json
+{
+  "model_version_id": "00000000-0000-0000-0000-000000000000",
+  "dataset_id": "00000000-0000-0000-0000-000000000000",
+  "algorithm": "pgd",
+  "epsilon": 0.031372549,
+  "step_size": 0.007843137,
+  "iterations": 10,
+  "random_start": true,
+  "seed": 1729,
+  "batch_size": 64,
+  "max_samples": 256
+}
+```
+
+FGSM default는 `step_size=epsilon`, `iterations=1`, `random_start=false`입니다. PGD default는
+`step_size=epsilon/4`, `iterations=10`, `random_start=true`입니다.
+
+응답은 같은 sample population의 clean/robust accuracy, clean-correct denominator 기반
+attack success rate, raw counts, maximum observed L∞, clean/adversarial prediction fingerprints,
+gradient status를 포함합니다. 입력 gradient가 모두 0이면 run은 실패로 꾸며지지 않고
+`gradient_status="flat"`과 warning을 반환합니다.
+
+## Runtime boundary
+
+Registry handle과 run index는 process-local입니다. API 재시작 후 list가 초기화되지만
+dataset/model/baseline artifact 파일은 configured storage에 남습니다. PostgreSQL/Redis는
+향후 persistence/worker 경계이며 현재 endpoint readiness에 포함되지 않습니다.

@@ -1,11 +1,12 @@
 # Reproducible Registry
 
-Stage 2 provides process-local runtime handles and immutable metadata for datasets and models. It
-does not yet persist registry rows in PostgreSQL.
+The registry provides process-local runtime handles and immutable metadata for datasets, models,
+baselines, and attack runs. It does not yet persist registry rows in PostgreSQL.
 
 ## Dataset adapters
 
-Only `mnist` and `cifar10` are accepted. Each adapter fixes its canonical public source, dataset
+`synthetic`, `mnist`, and `cifar10` are accepted. `synthetic` creates the deterministic Signal-10
+workflow dataset locally and is marked `generated`; it is not a benchmark. Each public adapter fixes its canonical public source, dataset
 version, class count, input shape, and `ToTensor` transform. The record includes the requested
 `train` or `test` split, sample count, torchvision version, and a SHA-256 manifest over sorted local
 paths, sizes, and file contents.
@@ -39,11 +40,10 @@ CUDA devices, enables deterministic algorithms, disables cuDNN benchmarking, and
 on both model and evaluation results. A CUDA request fails when CUDA is unavailable rather than
 silently falling back to CPU.
 
-## Basic evaluation boundary
+## Evaluation boundary
 
-Stage 2 evaluation exists to verify that a loaded model and dataset work together. It checks channel
-and class compatibility, uses deterministic ordering and an optional sample cap, and returns clean
-accuracy plus cross-entropy loss. `robust_accuracy` remains explicitly `null/not_evaluated`.
-
-Confusion matrices, per-class precision/recall, inference latency, artifacts, and same-seed rerun
-comparisons are reserved for the stage 3 clean-baseline evaluator.
+The legacy compatibility endpoint checks channel/class alignment, deterministic ordering, optional
+sample caps, clean accuracy, and loss. The full baseline adds confusion matrix, per-class metrics,
+latency, environment evidence, artifacts, and exact-config reruns. The attack registry retains
+bounded FGSM/PGD records with paired clean/robust metrics, raw attack counts, prediction
+fingerprints, and gradient-health warnings.
