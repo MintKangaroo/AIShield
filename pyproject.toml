@@ -42,10 +42,14 @@ postgres = [
   "psycopg[binary]>=3.2,<4",
   "sqlalchemy>=2.0,<3",
 ]
+redis = [
+  "redis>=5,<7",
+]
 
 [project.scripts]
 aishield-api = "aishield.api.main:run"
 aishield-run = "aishield.cli.experiment:main"
+aishield-worker = "aishield.cli.worker:main"
 aishield-export-schema = "aishield.schemas.export:main"
 
 [tool.hatch.build.targets.wheel]

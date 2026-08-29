@@ -19,6 +19,7 @@ from aishield.jobs.contracts import (
     JobRecord,
     JobStatus,
 )
+from aishield.jobs.tasks import TaskDescriptor
 
 logger = logging.getLogger("aishield.jobs")
 
@@ -28,6 +29,8 @@ DEFAULT_MAX_PENDING = 16
 DEFAULT_RETAINED_JOBS = 256
 
 JobObserver = Callable[[JobRecord], None]
+#: Runs one described task and returns the identifier of the record it produced.
+TaskExecutor = Callable[[TaskDescriptor], UUID | None]
 
 
 class JobQueue:
@@ -35,6 +38,7 @@ class JobQueue:
 
     def __init__(
         self,
+        executor: TaskExecutor,
         max_workers: int = 2,
         *,
         max_pending: int = DEFAULT_MAX_PENDING,
@@ -47,6 +51,7 @@ class JobQueue:
             raise ValueError("max_pending must be at least 1")
         if retained_jobs < 1:
             raise ValueError("retained_jobs must be at least 1")
+        self._run_task = executor
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="aishield")
         self._jobs: dict[UUID, JobRecord] = {}
         self._futures: dict[UUID, Future[UUID | None]] = {}
@@ -62,9 +67,10 @@ class JobQueue:
         with self._lock:
             return sum(1 for job in self._jobs.values() if not job.is_terminal)
 
-    def submit(self, kind: str, task: Callable[[], UUID | None]) -> JobRecord:
+    def submit(self, task: TaskDescriptor) -> JobRecord:
         """Accept one unit of background work, or refuse it when the backlog is full."""
 
+        kind = task.kind.value
         job = JobRecord.queued(uuid4(), kind)
         with self._lock:
             pending = sum(1 for existing in self._jobs.values() if not existing.is_terminal)
@@ -87,10 +93,10 @@ class JobQueue:
         future.add_done_callback(lambda completed: self._finish(job.id, completed))
         return job
 
-    def _run(self, job_id: UUID, task: Callable[[], UUID | None]) -> UUID | None:
+    def _run(self, job_id: UUID, task: TaskDescriptor) -> UUID | None:
         started = self._transition(job_id, status=JobStatus.RUNNING, started_at=datetime.now(UTC))
         logger.info("job started", extra={"job_id": str(job_id), "job_kind": started.kind})
-        return task()
+        return self._run_task(task)
 
     def _finish(self, job_id: UUID, future: Future[UUID | None]) -> None:
         with self._lock:
@@ -171,6 +177,9 @@ class JobQueue:
     def list(self) -> list[JobRecord]:
         with self._lock:
             return [self._jobs[key] for key in sorted(self._jobs, key=str)]
+
+    def check_ready(self) -> None:
+        """Always ready: the work runs on this process's own threads."""
 
     def shutdown(self, *, wait: bool = True) -> None:
         """Stop accepting work and release worker threads."""

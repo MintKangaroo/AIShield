@@ -26,8 +26,9 @@ from aishield.evaluation.contracts import (
 )
 from aishield.evaluation.runner import run_clean_baseline, verify_baseline_rerun
 from aishield.evaluation.score import calculate_score
+from aishield.jobs.backend import JobBackend, build_job_backend
 from aishield.jobs.contracts import JobQueueFullError, JobRecord
-from aishield.jobs.queue import JobQueue
+from aishield.jobs.tasks import TaskDescriptor, TaskKind, TrainingTask
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -84,6 +85,7 @@ class RegistryService:
         settings: Settings,
         dataset_adapters: Mapping[DatasetName, TorchvisionDatasetAdapter] | None = None,
         store: MetadataStore | None = None,
+        jobs: "JobBackend | None" = None,
     ) -> None:
         self.settings = settings
         self._dataset_adapters = dict(
@@ -103,10 +105,9 @@ class RegistryService:
         self._training: dict[UUID, TrainingRunRecord] = {}
         self._experiments: dict[UUID, ExperimentResult] = {}
         self._store: MetadataStore = store or build_metadata_store(settings)
-        self._jobs = JobQueue(
-            max_workers=settings.job_max_workers,
-            max_pending=settings.job_max_pending,
-            retained_jobs=settings.job_retained_records,
+        self._jobs: JobBackend = jobs or build_job_backend(
+            settings,
+            self.execute_task,
             observer=lambda record: self._store.append("job", record),
         )
         self._run_slots = BoundedSemaphore(settings.max_concurrent_runs)
@@ -677,10 +678,16 @@ class RegistryService:
             restored += 1
         return restored
 
+    def record_job(self, record: JobRecord) -> None:
+        """Append one job transition to the metadata store as audit evidence."""
+
+        self._store.append("job", record)
+
     def check_ready(self) -> None:
         """Raise when the configured metadata store cannot currently be used."""
 
         self._store.check_ready()
+        self._jobs.check_ready()
 
     def shutdown(self) -> None:
         """Stop background workers and release the metadata store's resources."""
@@ -693,6 +700,20 @@ class RegistryService:
 
         return self._store.read()
 
+    def execute_task(self, task: TaskDescriptor) -> UUID | None:
+        """Run one described task, whichever worker picked it up.
+
+        Both the in-process queue and a separate worker process route through
+        here, so a job behaves identically no matter where it runs.
+        """
+
+        with self._worker_mode():
+            if task.kind is TaskKind.TRAINING:
+                return self.train_model(task.model_version_id, task.dataset_id, config=task.config)[
+                    1
+                ].id
+        raise RegistryError(f"unsupported task kind: {task.kind}")
+
     def submit_training_job(
         self, model_id: UUID, dataset_id: UUID, *, config: TrainingConfig
     ) -> JobRecord:
@@ -702,13 +723,9 @@ class RegistryService:
         # caller sees a 404 now instead of a failed job record later.
         self.get_model_bundle(model_id)
         self.get_dataset_bundle(dataset_id)
-
-        def task() -> UUID:
-            with self._worker_mode():
-                return self.train_model(model_id, dataset_id, config=config)[1].id
-
+        task = TrainingTask(model_version_id=model_id, dataset_id=dataset_id, config=config)
         try:
-            return self._jobs.submit("training", task)
+            return self._jobs.submit(task)
         except JobQueueFullError as error:
             raise RegistryBusyError(str(error)) from error
 

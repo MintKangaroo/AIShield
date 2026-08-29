@@ -49,7 +49,8 @@
 
 ### 5. 테스트
 
-- 백엔드 89 → **156 tests**, coverage 91.9% → **93.8%** (PostgreSQL 없이는 141 + 15 skip)
+- 백엔드 89 → **183 tests**, coverage 91.9% → **93.0%**
+  (PostgreSQL/Redis 없이는 141 passed + 42 skipped)
 - 신규: `test_jobs_queue.py`, `test_registry_journal.py`, `test_registry_jobs.py`,
   `test_logging.py`, `test_experiment_export.py`, `test_cli_experiment.py`,
   `test_journal_replay.py`, `test_dashboard_contract.py`
@@ -103,6 +104,25 @@ identity를 유지합니다. Background job은 복구하지 않습니다. 손상
 프로세스를 healthy로 보고하면 정작 중요한 실패가 가려지기 때문에 두 신호를 분리했습니다.
 데이터베이스가 시작 시점에 닿지 않으면 API는 조용히 뜨지 않고 명확한 오류로 실패합니다.
 
+### 11. 프로세스 밖 evaluation worker (Redis)
+
+API가 job을 수락만 하고, 별도 `aishield-worker` 프로세스가 실행합니다.
+
+- Task를 closure가 아니라 직렬화 가능한 기술자(`aishield/jobs/tasks.py`)로 바꿨습니다.
+  closure는 프로세스 경계를 넘을 수 없어서 이게 선결 조건이었습니다.
+- `JobBackend` 프로토콜 뒤에 두 구현: `inprocess`(기본, thread pool)와 `redis`.
+- Worker는 runtime handle을 넘겨받지 않습니다. 공유 metadata store에서 dataset/model을
+  직접 복구하고 content hash를 검증한 뒤 실행합니다. 따라서 `redis` job backend는
+  `postgresql` metadata backend와 함께 씁니다.
+- `BLPOP`으로 원자적으로 가져가므로 두 worker가 같은 job을 실행하지 않습니다(테스트로 고정).
+- Job 상태 전이는 두 프로세스가 각자 관찰한 것을 metadata store에 기록합니다
+  (API가 `queued`, worker가 `running`/`succeeded`/`failed`).
+- `docker compose --profile worker up`으로 실행합니다. `.[redis]` extra.
+
+실제 검증: API와 worker를 별개의 OS 프로세스로 띄워 job이 worker에서만 실행되고
+(API 로그에 training run 0건), worker가 만든 증거가 공유 저장소를 통해 API에 보이는 것을
+확인했습니다.
+
 ## 이번에 잡은 실제 버그
 
 1. **대시보드가 존재하지 않는 경로 호출** — transfer는 `/registry/defenses/transfer`인데
@@ -114,6 +134,9 @@ identity를 유지합니다. Background job은 복구하지 않습니다. 손상
 3. **Journal replay가 trained model의 identity를 덮어씀** — `SmallCNNAdapter.load`가 파생한
    record를 그대로 쓰면 trained model이 새 SmallCNN identity로 되살아났습니다. 이제 가중치만
    검증하고 기록된 record를 유지합니다.
+4. **Job backend를 추출하면서 job record 저널링이 빠짐** — `JobQueue` 생성에서 `observer`를
+   떨어뜨렸습니다. `test_registry_jobs.py`가 즉시 잡았고, 두 backend 모두에 observer를
+   복구했습니다.
 
 ## 검증 기준
 
@@ -124,10 +147,12 @@ python -m mypy .
 python -m pytest
 python -m aishield.schemas.export --check schemas/experiment-result.schema.json
 
-# PostgreSQL backend까지 검증하려면 (없으면 해당 테스트는 skip)
+# PostgreSQL/Redis backend까지 검증하려면 (없으면 해당 테스트는 skip)
 docker run -d --name aishield-pg -e POSTGRES_PASSWORD=aishield -e POSTGRES_USER=aishield \
   -e POSTGRES_DB=aishield -p 55432:5432 postgres:16-alpine
+docker run -d --name aishield-redis -p 56379:6379 redis:7-alpine
 AISHIELD_TEST_DATABASE_URL=postgresql://aishield:aishield@127.0.0.1:55432/aishield \
+AISHIELD_TEST_REDIS_URL=redis://127.0.0.1:56379/0 \
   python -m pytest
 
 npm --prefix web ci
@@ -139,7 +164,7 @@ docker compose config --quiet
 docker compose --profile gpu config --quiet
 ```
 
-최근 검증 결과: backend `156 passed`(PostgreSQL 포함), coverage `93.78%`, Ruff/mypy 통과.
+최근 검증 결과: backend `183 passed`(PostgreSQL·Redis 포함), coverage `92.97%`, Ruff/mypy 통과.
 Frontend `43 passed`, TypeScript no-emit과 Vite production build 통과.
 
 라이브 검증도 수행했습니다: 실제 uvicorn + Vite dev server를 띄우고 defense·transfer·
@@ -176,21 +201,23 @@ npm --prefix web ci
   공유해야 할 때만 켭니다. 두 backend는 append-only이며 같은 계약 테스트를 통과합니다.
 - 데이터베이스가 시작 시점에 닿지 않으면 API는 뜨지 않습니다. 증거를 기록할 수 없는 상태로
   기동하는 것보다 명확히 실패하는 편이 낫다고 판단했습니다.
-- Redis Compose 서비스는 여전히 코드에서 사용하지 않습니다.
+- Job backend는 `inprocess`가 기본입니다. `redis`는 무거운 평가를 API에서 떼어낼 때만
+  켜며, worker가 metadata를 공유해야 하므로 `postgresql`과 함께 씁니다.
+- Worker는 실패한 job을 재시도하지 않습니다. 재시도가 안전한지는 task 종류에 따라 다르고,
+  현재는 실패를 증거로 남기는 편이 조용히 다시 도는 것보다 낫다고 판단했습니다.
 
 ## 다음 작업 우선순위
 
-1. Redis-backed resource-isolated evaluation worker 및 CPU/CUDA image pinning.
-   Metadata 공유는 끝났으므로 이제 실행 격리만 남았습니다.
+1. CPU/CUDA worker image digest pinning — worker 격리는 끝났고, 이제 CUDA profile을
+   추가할 수 있는 상태입니다.
 2. 선택적 API key 인증 — 현재 API는 완전 개방이며 artifact download와 학습 트리거가
    무방비입니다
 3. run-to-run 비교와 sample triplet dashboard UI
 4. black-box/white-box masking diagnostics 및 independent numerical fixtures
 5. CI에 `pip-audit`/`npm audit`, Dependabot, 프론트엔드 ESLint 추가
-6. Artifact garbage-collection 정책 — journal/DB는 무한히 늘어나고 model checkpoint도
+6. Artifact garbage-collection 정책 — metadata store는 무한히 늘어나고 model checkpoint도
    정리되지 않습니다
-7. Redis Compose service를 `profiles`로 분리 — 여전히 기동만 하고 쓰지 않습니다
-   (PostgreSQL은 이제 실제로 사용 가능하므로 그대로 둡니다)
+7. Worker의 dead-letter 처리 — 현재 실패한 job은 기록만 되고 재시도하지 않습니다
 
 세부 범위는 `docs/roadmap.md`를 기준으로 합니다. 새 기능은 numerical unit test, API
 contract test, strict typing, README/API 문서 갱신을 함께 완료해야 합니다.

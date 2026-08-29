@@ -42,7 +42,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ process-wide concurrent-run limit with 429 back-pressure
    - ✅ PostgreSQL registry/run metadata (opt-in backend behind one shared contract)
    - ✅ readiness endpoint that checks the configured store instead of guessing
-   - Redis-backed job queue and resource-bounded worker
+   - ✅ Redis-backed job queue and out-of-process evaluation worker
    - artifact garbage-collection policy
    - CPU/CUDA worker image digest pinning
 

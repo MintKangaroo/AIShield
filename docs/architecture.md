@@ -23,8 +23,8 @@ Redis      ─ isolated worker boundary (future)
 ```
 
 PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADATA_BACKEND=postgresql`).
-기본값 `journal`은 서버 없이 단일 프로세스로 동작합니다. Redis는 아직 Compose에서 boundary만
-고정하고 registry에서 사용하지 않습니다.
+기본값 `journal`은 서버 없이 단일 프로세스로 동작합니다. Redis는 `AISHIELD_JOB_BACKEND=redis`일 때 job broker로
+사용합니다. 이때 API는 job을 수락만 하고, 별도 `aishield-worker` 프로세스가 실행합니다.
 
 `/health/live`는 여전히 process liveness만 보고합니다. 실제 dependency 확인은
 `/health/ready`가 담당하며, 설정된 store에 접근해 보고 실패하면 503을 반환합니다.
@@ -38,7 +38,8 @@ PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADA
   exact-config verification.
 - `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner.
 - `aishield.schemas` — portable versioned experiment exchange contract.
-- `aishield.jobs` — bounded worker queue, job status contract, backlog/retention limits.
+- `aishield.jobs` — job status contract, serializable task descriptors, and the
+  in-process and Redis backends behind one protocol.
 - `aishield.registry.store` — metadata persistence protocol shared by the journal and
   PostgreSQL backends; runtime handles never cross it.
 - `aishield.cli` — headless experiment runner producing the exchange envelope.
@@ -79,6 +80,21 @@ configured metadata store (journal file 또는 PostgreSQL table)
   -> background job은 복구하지 않음 (죽은 프로세스의 queued job은 실행된 적이 없음)
   -> 손상된 entry는 skip 사유와 함께 보고, API 기동은 실패하지 않음
 ```
+
+### Worker isolation
+
+```text
+API process                     shared boundary            worker process
+  accept job  ── serialized task ──> Redis list  ──BLPOP──> claim (atomic)
+                                                            replay metadata
+                                                            verify content hash
+  read status <── job records ───── Redis hash <──────────  run + record
+  read evidence <── metadata store (PostgreSQL) <─────────  append evidence
+```
+
+Task는 closure가 아니라 직렬화 가능한 기술자입니다. Worker는 runtime handle을 넘겨받지
+않고 공유 metadata에서 직접 복구하므로, 두 프로세스는 저장소와 broker 외에 아무것도
+공유하지 않습니다.
 
 ### Execution slots
 

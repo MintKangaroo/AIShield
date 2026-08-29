@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # One heavy evaluation at a time by default: a single box cannot honestly run
     # several full torch evaluations concurrently without distorting latency evidence.
     max_concurrent_runs: int = Field(default=1, ge=1, le=64)
+    # "inprocess" runs jobs on the API's own threads; "redis" hands them to a
+    # separate `aishield-worker` process that owns its own CPU and memory budget.
+    job_backend: Literal["inprocess", "redis"] = "inprocess"
     job_max_workers: int = Field(default=2, ge=1, le=32)
     job_max_pending: int = Field(default=16, ge=1, le=1024)
     job_retained_records: int = Field(default=256, ge=1, le=100_000)

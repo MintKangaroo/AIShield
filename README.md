@@ -321,7 +321,7 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | Method | Endpoint | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/health/live` | process liveness와 device |
-| `GET` | `/api/v1/health/ready` | 설정된 metadata store 접근 확인 (실패 시 503) |
+| `GET` | `/api/v1/health/ready` | metadata store와 job broker 접근 확인 (실패 시 503) |
 | `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
 | `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
 | `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
@@ -497,6 +497,24 @@ AISHIELD_METADATA_BACKEND=postgresql docker compose up --build
 PostgreSQL을 쓰려면 `postgres` extra가 필요합니다(`pip install -e ".[dev,ml,postgres]"`).
 Docker image에는 이미 포함되어 있습니다.
 
+Background job 실행 위치. 기본은 API 프로세스의 thread pool이고, 무거운 평가를 API에서
+떼어내야 할 때 별도 worker 프로세스로 넘깁니다.
+
+```dotenv
+AISHIELD_JOB_BACKEND=inprocess      # 또는 redis
+AISHIELD_REDIS_URL=redis://redis:6379/0
+```
+
+```bash
+# API + 격리된 worker
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile worker up --build
+```
+
+`redis` backend에서 API는 job을 수락만 하고 실행하지 않습니다. Worker는 공유 metadata에서
+dataset/model handle을 직접 복구하므로 두 프로세스는 저장소와 broker 외에는 아무것도
+공유하지 않습니다.
+
 실행 자원과 복구 동작:
 
 ```dotenv
@@ -540,7 +558,7 @@ source .venv/bin/activate
 
 python -m pip install torch==2.13.0 torchvision==0.28.0 \
   --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -e ".[dev,ml,postgres]"
+python -m pip install -e ".[dev,ml,postgres,redis]"
 
 npm --prefix web ci
 make check
@@ -553,8 +571,9 @@ docker compose config --quiet
 
 - Ruff lint + format
 - mypy `strict = true`
-- pytest 156개와 line coverage 90% gate (PostgreSQL 테스트는 `AISHIELD_TEST_DATABASE_URL`이
-  설정된 경우에만 실행되고, 없으면 skip합니다)
+- pytest 183개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
+  `AISHIELD_TEST_DATABASE_URL`·`AISHIELD_TEST_REDIS_URL`이 설정된 경우에만 실행되고,
+  없으면 skip합니다)
 - 생성된 JSON Schema drift check
 - React/TypeScript no-emit check + Vitest 43개 + Vite production build
 - 대시보드가 호출하는 모든 경로가 실제 OpenAPI에 존재하는지 검사하는 contract test

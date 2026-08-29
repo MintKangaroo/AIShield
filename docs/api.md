@@ -12,7 +12,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | --- | --- | --- |
 | `GET` | `/api/v1` | Service version과 release scope |
 | `GET` | `/api/v1/health/live` | Process liveness와 configured device |
-| `GET` | `/api/v1/health/ready` | 설정된 metadata store 사용 가능 여부 (실패 시 503) |
+| `GET` | `/api/v1/health/ready` | metadata store와 job broker 사용 가능 여부 (실패 시 503) |
 | `POST` | `/api/v1/registry/datasets` | Built-in dataset split load |
 | `GET` | `/api/v1/registry/datasets` | 현재 process의 dataset list |
 | `POST` | `/api/v1/registry/models/small-cnn` | Seeded/checkpoint SmallCNN load |
@@ -167,6 +167,32 @@ journal을 그대로 반영합니다. 즉 record 하나가 row 하나이고 payl
 - Background job은 절대 복구하지 않습니다. 죽은 프로세스의 queued job은 실행된 적이
   없으므로 되살리면 거짓 증거가 됩니다.
 - Journal이 손상되어도 API 기동은 실패하지 않습니다. 오류는 로그로 남기고 계속합니다.
+
+## Execution boundary
+
+`AISHIELD_JOB_BACKEND`으로 background job의 실행 위치를 고릅니다.
+
+| 값 | 실행 위치 | 용도 |
+| --- | --- | --- |
+| `inprocess` (기본) | API 프로세스의 thread pool | 단일 컨테이너 데모 |
+| `redis` | 별도 `aishield-worker` 프로세스 | 무거운 평가를 API와 분리 |
+
+`redis` backend에서 API는 job을 **수락만** 하고 실행하지 않습니다. Task는 closure가 아니라
+직렬화 가능한 기술자(`aishield.jobs.tasks`)로 큐에 들어가며, worker가 `BLPOP`으로 원자적으로
+가져갑니다. 따라서 두 worker가 같은 job을 실행하는 일은 없습니다.
+
+Worker는 runtime handle을 전달받지 않습니다. 공유 metadata store에서 dataset/model을
+직접 복구하고 content hash를 검증한 뒤 실행하므로, 기록된 identity와 달라진 입력으로는
+평가할 수 없습니다. 이 구조가 성립하려면 metadata가 공유되어야 하므로 `redis` job backend는
+`postgresql` metadata backend와 함께 씁니다.
+
+Job 상태 전이는 두 프로세스가 각각 자신이 관찰한 것을 metadata store에 기록합니다
+(API가 `queued`, worker가 `running`/`succeeded`/`failed`).
+
+```bash
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile worker up --build
+```
 
 ## Concurrency boundary
 

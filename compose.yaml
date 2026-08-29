@@ -39,6 +39,8 @@ services:
       AISHIELD_DATABASE_URL: postgresql://${POSTGRES_USER:-aishield}:${POSTGRES_PASSWORD:-aishield}@postgres:5432/${POSTGRES_DB:-aishield}
       # "journal" keeps metadata in a local file; "postgresql" shares it across processes.
       AISHIELD_METADATA_BACKEND: ${AISHIELD_METADATA_BACKEND:-journal}
+      # "inprocess" runs jobs on the API's threads; "redis" hands them to the worker.
+      AISHIELD_JOB_BACKEND: ${AISHIELD_JOB_BACKEND:-inprocess}
       AISHIELD_REDIS_URL: redis://redis:6379/0
       AISHIELD_ARTIFACT_ROOT: /app/artifacts
       AISHIELD_MODEL_ROOT: /app/artifacts/models
@@ -66,6 +68,39 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
+  # Isolated evaluation worker. Enable with:
+  #   AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  #     docker compose --profile worker up --build
+  # The API then queues work instead of running it, and this container owns the
+  # CPU and memory the heavy torch runs need.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    command: ["aishield-worker"]
+    environment:
+      AISHIELD_ENVIRONMENT: ${AISHIELD_ENVIRONMENT:-development}
+      AISHIELD_LOG_LEVEL: ${AISHIELD_LOG_LEVEL:-INFO}
+      AISHIELD_COMPUTE_DEVICE: cpu
+      AISHIELD_DATABASE_URL: postgresql://${POSTGRES_USER:-aishield}:${POSTGRES_PASSWORD:-aishield}@postgres:5432/${POSTGRES_DB:-aishield}
+      AISHIELD_REDIS_URL: redis://redis:6379/0
+      AISHIELD_ARTIFACT_ROOT: /app/artifacts
+      AISHIELD_MODEL_ROOT: /app/artifacts/models
+      AISHIELD_DATASET_ROOT: /app/data
+      AISHIELD_ALLOW_PUBLIC_DOWNLOADS: ${AISHIELD_ALLOW_PUBLIC_DOWNLOADS:-false}
+      AISHIELD_METADATA_BACKEND: postgresql
+      AISHIELD_JOB_BACKEND: redis
+    volumes:
+      - artifact-data:/app/artifacts
+      - dataset-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   dashboard:
