@@ -541,8 +541,21 @@ AISHIELD_LOG_LEVEL=INFO
 docker compose --profile gpu run --rm gpu-check
 ```
 
-기본 API image는 재현 가능한 CPU 실행입니다. `gpu-check` profile은 GPU 접근만 확인하며
-API를 CUDA worker로 전환하지 않습니다.
+기본 API image는 재현 가능한 CPU 실행입니다. `gpu-check` profile은 GPU 접근만 확인합니다.
+실제 CUDA 평가는 별도 worker image로 실행합니다.
+
+```bash
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile gpu-worker up --build
+```
+
+CUDA worker는 CPU 이미지와 같은 torch 버전을 CUDA wheel로 설치하므로, 결과가 device 때문에
+달라질 수는 있어도 framework 버전 때문에 달라지지는 않습니다. `AISHIELD_COMPUTE_DEVICE=cuda`는
+CUDA를 쓸 수 없으면 조용히 CPU로 내려가지 않고 기동에 실패합니다.
+
+모든 base image는 tag가 아니라 digest로 고정되어 있습니다. 빌드 시
+`AISHIELD_CONTAINER_IMAGE_DIGEST`를 주입하면 모든 evidence envelope에 기록되어 결과를
+만들어낸 이미지를 역추적할 수 있습니다.
 
 ## 🧪 개발과 검증
 

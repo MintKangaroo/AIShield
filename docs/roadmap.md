@@ -43,8 +43,10 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ PostgreSQL registry/run metadata (opt-in backend behind one shared contract)
    - ✅ readiness endpoint that checks the configured store instead of guessing
    - ✅ Redis-backed job queue and out-of-process evaluation worker
+   - ✅ CPU/CUDA worker images pinned by digest, with the deployed digest recorded
+     in every evidence envelope
    - artifact garbage-collection policy
-   - CPU/CUDA worker image digest pinning
+   - worker dead-letter handling
 
 10. **Transparent robustness score**
     - ✅ versioned public formula

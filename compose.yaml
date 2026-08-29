@@ -2,7 +2,7 @@ name: aishield
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-aishield}
       POSTGRES_USER: ${POSTGRES_USER:-aishield}
@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -47,6 +47,8 @@ services:
       AISHIELD_DATASET_ROOT: /app/data
       AISHIELD_ALLOW_PUBLIC_DOWNLOADS: ${AISHIELD_ALLOW_PUBLIC_DOWNLOADS:-false}
       AISHIELD_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+      # Recorded in every evidence envelope; set it to the digest actually deployed.
+      AISHIELD_CONTAINER_IMAGE_DIGEST: ${AISHIELD_CONTAINER_IMAGE_DIGEST:-}
     volumes:
       - artifact-data:/app/artifacts
       - dataset-data:/app/data
@@ -93,6 +95,7 @@ services:
       AISHIELD_ALLOW_PUBLIC_DOWNLOADS: ${AISHIELD_ALLOW_PUBLIC_DOWNLOADS:-false}
       AISHIELD_METADATA_BACKEND: postgresql
       AISHIELD_JOB_BACKEND: redis
+      AISHIELD_CONTAINER_IMAGE_DIGEST: ${AISHIELD_CONTAINER_IMAGE_DIGEST:-}
     volumes:
       - artifact-data:/app/artifacts
       - dataset-data:/app/data
@@ -114,8 +117,49 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # CUDA evaluation worker. Requires the NVIDIA Container Toolkit. Enable with:
+  #   AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  #     docker compose --profile gpu-worker up --build
+  # The API stays on CPU and hands heavy evaluations here.
+  gpu-worker:
+    profiles: ["gpu-worker"]
+    build:
+      context: .
+      dockerfile: docker/worker.cuda.Dockerfile
+    environment:
+      AISHIELD_ENVIRONMENT: ${AISHIELD_ENVIRONMENT:-development}
+      AISHIELD_LOG_LEVEL: ${AISHIELD_LOG_LEVEL:-INFO}
+      # The registry refuses to start rather than fall back to CPU, so a run
+      # recorded as CUDA really used CUDA.
+      AISHIELD_COMPUTE_DEVICE: cuda
+      AISHIELD_DATABASE_URL: postgresql://${POSTGRES_USER:-aishield}:${POSTGRES_PASSWORD:-aishield}@postgres:5432/${POSTGRES_DB:-aishield}
+      AISHIELD_REDIS_URL: redis://redis:6379/0
+      AISHIELD_ARTIFACT_ROOT: /app/artifacts
+      AISHIELD_MODEL_ROOT: /app/artifacts/models
+      AISHIELD_DATASET_ROOT: /app/data
+      AISHIELD_ALLOW_PUBLIC_DOWNLOADS: ${AISHIELD_ALLOW_PUBLIC_DOWNLOADS:-false}
+      AISHIELD_METADATA_BACKEND: postgresql
+      AISHIELD_JOB_BACKEND: redis
+      AISHIELD_CONTAINER_IMAGE_DIGEST: ${AISHIELD_CONTAINER_IMAGE_DIGEST:-}
+    volumes:
+      - artifact-data:/app/artifacts
+      - dataset-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+    restart: unless-stopped
+
   gpu-check:
-    image: nvidia/cuda:12.4.1-base-ubuntu22.04
+    image: nvidia/cuda:12.4.1-base-ubuntu22.04@sha256:0f6bfcbf267e65123bcc2287e2153dedfc0f24772fb5ce84afe16ac4b2fada95
     profiles: ["gpu"]
     command: ["nvidia-smi"]
     deploy:

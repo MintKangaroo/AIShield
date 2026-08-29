@@ -194,6 +194,35 @@ AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile worker up --build
 ```
 
+## Reproducible images
+
+모든 base image는 tag가 아니라 digest로 고정되어 있습니다. Tag는 움직이므로, 고정하지
+않으면 같은 Dockerfile을 다시 빌드해도 다른 결과가 나올 수 있습니다.
+
+빌드 시 `AISHIELD_CONTAINER_IMAGE_DIGEST`를 주입하면 그 값이 모든 evidence envelope의
+`container_image_digest`에 기록되어, 결과를 만들어낸 이미지를 역추적할 수 있습니다.
+
+```bash
+docker build -f docker/api.Dockerfile \
+  --build-arg AISHIELD_CONTAINER_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' <image>)" \
+  --build-arg AISHIELD_GIT_COMMIT="$(git rev-parse HEAD)" .
+```
+
+값이 digest 형식이 아니면 기록하지 않고 경고를 남깁니다. 잘못된 provenance는 없는 것보다
+나쁘기 때문입니다 — 재현을 시도하는 사람을 엉뚱한 이미지로 보냅니다.
+
+### CUDA worker
+
+`docker/worker.cuda.Dockerfile`은 CPU 이미지와 **같은 torch 버전**을 CUDA wheel로 설치합니다.
+결과가 device 때문에 달라질 수는 있어도 framework 버전 때문에 달라지지는 않습니다.
+`AISHIELD_COMPUTE_DEVICE=cuda`이면 CUDA를 쓸 수 없을 때 조용히 CPU로 내려가지 않고 기동에
+실패하므로, CUDA로 기록된 run은 실제로 CUDA를 사용한 것입니다.
+
+```bash
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile gpu-worker up --build
+```
+
 ## Concurrency boundary
 
 `AISHIELD_MAX_CONCURRENT_RUNS`(기본 `1`)가 동시에 실행 가능한 heavy evaluation 수를

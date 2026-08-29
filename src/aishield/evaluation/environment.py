@@ -1,5 +1,6 @@
 """Capture environment versions without invoking external commands."""
 
+import logging
 import os
 import platform
 import re
@@ -16,6 +17,10 @@ from aishield.evaluation.contracts import BaselineEnvironment
 
 GIT_HASH_PATTERN: Final = re.compile(r"^(?:[a-f0-9]{40}|[a-f0-9]{64})$")
 GIT_REF_PATTERN: Final = re.compile(r"^refs/[A-Za-z0-9._/-]+$")
+#: A bare digest, or a repository reference carrying one.
+IMAGE_DIGEST_PATTERN: Final = re.compile(r"^(?:[A-Za-z0-9._/:-]+@)?sha256:[a-f0-9]{64}$")
+
+logger = logging.getLogger("aishield.evaluation.environment")
 
 
 def _validated_git_hash(candidate: str | None) -> str | None:
@@ -64,6 +69,25 @@ def discover_git_commit() -> str | None:
     return None
 
 
+def discover_container_image_digest() -> str | None:
+    """Read the deployed image digest, rejecting anything that is not one.
+
+    A malformed value would be recorded as provenance and quietly mislead anyone
+    trying to reproduce the run, so it is dropped with a warning instead.
+    """
+
+    candidate = os.getenv("AISHIELD_CONTAINER_IMAGE_DIGEST", "").strip()
+    if not candidate:
+        return None
+    if IMAGE_DIGEST_PATTERN.fullmatch(candidate):
+        return candidate
+    logger.warning(
+        "ignoring a malformed container image digest",
+        extra={"container_image_digest": candidate[:128]},
+    )
+    return None
+
+
 def capture_environment(device: torch.device) -> BaselineEnvironment:
     """Capture runtime and ML package versions for one evaluation."""
 
@@ -79,7 +103,7 @@ def capture_environment(device: torch.device) -> BaselineEnvironment:
             "torchvision": torchvision.__version__,
         },
         git_commit=discover_git_commit(),
-        container_image_digest=os.getenv("AISHIELD_CONTAINER_IMAGE_DIGEST") or None,
+        container_image_digest=discover_container_image_digest(),
         device=cast(Literal["cpu", "cuda"], device.type),
         cuda_version=torch.version.cuda,
         cudnn_version=str(cudnn_version) if cudnn_version is not None else None,

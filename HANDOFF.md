@@ -49,8 +49,10 @@
 
 ### 5. 테스트
 
-- 백엔드 89 → **183 tests**, coverage 91.9% → **93.0%**
-  (PostgreSQL/Redis 없이는 141 passed + 42 skipped)
+- 백엔드 89 → **223 tests**, coverage 91.9% → **93.3%**
+  (PostgreSQL/Redis 없이도 181 passed + 42 skipped, coverage 91.4%로 gate 통과)
+- `RedisJobQueue`는 주입한 in-memory client로도 검증하므로, 서버 없이 `pytest`만 돌려도
+  90% gate가 유지됩니다. 실제 broker 대상 통합 테스트는 그대로 CI에서 돕니다.
 - 신규: `test_jobs_queue.py`, `test_registry_journal.py`, `test_registry_jobs.py`,
   `test_logging.py`, `test_experiment_export.py`, `test_cli_experiment.py`,
   `test_journal_replay.py`, `test_dashboard_contract.py`
@@ -123,6 +125,23 @@ API가 job을 수락만 하고, 별도 `aishield-worker` 프로세스가 실행�
 (API 로그에 training run 0건), worker가 만든 증거가 공유 저장소를 통해 API에 보이는 것을
 확인했습니다.
 
+### 12. 재현 가능한 이미지와 provenance 기록
+
+- 모든 base image(python/node/nginx/postgres/redis/cuda)를 tag가 아니라 **digest**로
+  고정했습니다. Tag는 움직이므로 고정하지 않으면 같은 Dockerfile이 다른 결과를 냅니다.
+- `container_image_digest`는 evidence 계약에 **있었지만 아무도 채우지 않아 항상 null**
+  이었습니다. 이제 빌드 시 `--build-arg AISHIELD_CONTAINER_IMAGE_DIGEST=...`로 주입하면
+  모든 evidence envelope에 기록됩니다.
+- digest 형식이 아닌 값은 기록하지 않고 경고만 남깁니다. 잘못된 provenance는 없는 것보다
+  나쁘기 때문입니다 — 재현을 시도하는 사람을 엉뚱한 이미지로 보냅니다.
+- `docker/worker.cuda.Dockerfile` + `gpu-worker` compose profile. CPU 이미지와 **같은
+  torch 버전**을 CUDA wheel로 설치하므로 결과가 framework 버전 때문에 달라지지 않습니다.
+  `AISHIELD_COMPUTE_DEVICE=cuda`는 CUDA를 쓸 수 없으면 조용히 CPU로 내려가지 않고 기동에
+  실패합니다.
+- CUDA 이미지는 **빌드와 import까지만 검증했습니다.** 이 머신에 GPU가 없어 GPU 실행은
+  검증하지 못했습니다. 확인한 것: torch 2.13.0+cu126, cudnn 91002, entry point, digest 기록,
+  그리고 GPU 없이 `cuda`를 요구하면 기동을 거부하는 것.
+
 ## 이번에 잡은 실제 버그
 
 1. **대시보드가 존재하지 않는 경로 호출** — transfer는 `/registry/defenses/transfer`인데
@@ -164,7 +183,8 @@ docker compose config --quiet
 docker compose --profile gpu config --quiet
 ```
 
-최근 검증 결과: backend `183 passed`(PostgreSQL·Redis 포함), coverage `92.97%`, Ruff/mypy 통과.
+최근 검증 결과: backend `223 passed`(PostgreSQL·Redis 포함) / `181 passed + 42 skipped`
+(서비스 없이), coverage `93.32%` / `91.39%`, Ruff/mypy 통과.
 Frontend `43 passed`, TypeScript no-emit과 Vite production build 통과.
 
 라이브 검증도 수행했습니다: 실제 uvicorn + Vite dev server를 띄우고 defense·transfer·
@@ -208,9 +228,7 @@ npm --prefix web ci
 
 ## 다음 작업 우선순위
 
-1. CPU/CUDA worker image digest pinning — worker 격리는 끝났고, 이제 CUDA profile을
-   추가할 수 있는 상태입니다.
-2. 선택적 API key 인증 — 현재 API는 완전 개방이며 artifact download와 학습 트리거가
+1. 선택적 API key 인증 — 현재 API는 완전 개방이며 artifact download와 학습 트리거가
    무방비입니다
 3. run-to-run 비교와 sample triplet dashboard UI
 4. black-box/white-box masking diagnostics 및 independent numerical fixtures

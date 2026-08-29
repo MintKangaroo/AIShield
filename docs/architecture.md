@@ -139,7 +139,13 @@ compatibility and [0,1] validation
 
 ## Compute profiles
 
-CPU가 기본이며 Docker image는 PyTorch/torchvision CPU wheel을 pin합니다. Compose
-`gpu-check` profile은 NVIDIA Container Toolkit 접근만 확인합니다. CUDA evaluation
-worker는 dependency/image digest, scheduling, resource isolation이 구현된 뒤 별도 profile로
-추가합니다.
+CPU가 기본이며 Docker image는 PyTorch/torchvision CPU wheel을 pin합니다. 모든 base image는
+tag가 아니라 digest로 고정합니다.
+
+CUDA evaluation worker는 `gpu-worker` profile로 제공합니다. CPU 이미지와 같은 torch 버전을
+CUDA wheel로 설치하므로 결과가 framework 버전 때문에 달라지지 않으며,
+`AISHIELD_COMPUTE_DEVICE=cuda`는 CUDA를 쓸 수 없을 때 조용히 CPU로 내려가지 않고 기동에
+실패합니다. Compose `gpu-check` profile은 NVIDIA Container Toolkit 접근만 확인합니다.
+
+빌드 시 주입한 `AISHIELD_CONTAINER_IMAGE_DIGEST`는 모든 evidence envelope에 기록됩니다.
+digest 형식이 아닌 값은 기록하지 않고 경고를 남깁니다.
