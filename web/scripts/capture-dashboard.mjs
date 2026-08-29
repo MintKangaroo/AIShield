@@ -36,6 +36,10 @@ try {
     const navigationLabels = {
       artifacts: "Artifacts",
       attacks: "Attack lab",
+      defenses: "Defense lab",
+      jobs: "Jobs & training",
+      journal: "Journal",
+      overview: "Overview",
       registry: "Registry",
       runs: "Baseline runs",
     };

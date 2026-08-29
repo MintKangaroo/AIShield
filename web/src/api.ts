@@ -1,15 +1,24 @@
 import type {
-  AttackRequest,
   AttackCurveRequest,
+  AttackRequest,
   AttackRunRecord,
   BaselineRequest,
   BaselineRunRecord,
   BaselineVerification,
   DatasetRecord,
+  DefenseRequest,
+  DefenseRunRecord,
+  ExperimentResult,
   HealthResponse,
+  JobRecord,
+  JournalEntry,
+  JournalReplaySummary,
   ModelVersionRecord,
+  RobustnessScore,
   TrainingRequest,
   TrainingRunRecord,
+  TransferRequest,
+  TransferRunRecord,
 } from "./types";
 
 const registryPath = "/api/v1/registry";
@@ -51,7 +60,16 @@ export const api = {
   models: () => request<ModelVersionRecord[]>(`${registryPath}/models`),
   baselines: () => request<BaselineRunRecord[]>(`${registryPath}/baselines`),
   attacks: () => request<AttackRunRecord[]>(`${registryPath}/attacks`),
+  defenses: () => request<DefenseRunRecord[]>(`${registryPath}/defenses`),
+  transfers: () => request<TransferRunRecord[]>(`${registryPath}/defenses/transfer`),
   training: () => request<TrainingRunRecord[]>(`${registryPath}/training`),
+  jobs: () => request<JobRecord[]>(`${registryPath}/jobs`),
+  job: (jobId: string) => request<JobRecord>(`${registryPath}/jobs/${jobId}`),
+  journal: () => request<JournalEntry[]>(`${registryPath}/journal`),
+  replayJournal: () => post<JournalReplaySummary>(`${registryPath}/journal/replay`),
+  experiments: () => request<ExperimentResult[]>(`${registryPath}/experiments`),
+  importExperiment: (envelope: ExperimentResult) =>
+    post<ExperimentResult>(`${registryPath}/experiments`, envelope),
   loadDataset: (payload: {
     name: DatasetRecord["name"];
     split: DatasetRecord["split"];
@@ -65,10 +83,21 @@ export const api = {
     post<AttackRunRecord>(`${registryPath}/attacks`, payload),
   runAttackCurve: (payload: AttackCurveRequest) =>
     post<AttackRunRecord[]>(`${registryPath}/attack-curves`, payload),
+  runDefense: (payload: DefenseRequest) =>
+    post<DefenseRunRecord>(`${registryPath}/defenses`, payload),
+  runTransfer: (payload: TransferRequest) =>
+    post<TransferRunRecord>(`${registryPath}/defenses/transfer`, payload),
   runTraining: (payload: TrainingRequest) =>
     post<TrainingRunRecord>(`${registryPath}/training`, payload),
+  queueTraining: (payload: TrainingRequest) =>
+    post<JobRecord>(`${registryPath}/training/jobs`, payload),
+  calculateScore: (attackRunIds: string[]) =>
+    post<RobustnessScore>(`${registryPath}/robustness-score`, {
+      attack_run_ids: attackRunIds,
+    }),
   verifyBaseline: (baselineId: string) =>
     post<BaselineVerification>(`${registryPath}/baselines/${baselineId}/verify`),
   artifactUrl: (baselineId: string, artifactId: string) =>
     `${registryPath}/baselines/${baselineId}/artifacts/${artifactId}`,
+  experimentUrl: (baselineId: string) => `${registryPath}/baselines/${baselineId}/experiment`,
 };
