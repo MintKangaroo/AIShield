@@ -1,0 +1,194 @@
+import { AttackTable } from "../components/AttackTable";
+import { Icon } from "../components/Icon";
+import { RobustnessScoreCard } from "../components/RobustnessScoreCard";
+import { StrengthCurve } from "../components/StrengthCurve";
+import { formatDate, formatPercent } from "../format";
+import type {
+  AttackRunRecord,
+  DatasetRecord,
+  ModelVersionRecord,
+  RobustnessScore,
+} from "../types";
+
+export function AttacksPage({
+  attackDataset,
+  attackModel,
+  attacks,
+  busy,
+  curveRuns,
+  datasets,
+  models,
+  onCalculateScore,
+  onOpenAttack,
+  onRunCurve,
+  onSelectAttack,
+  onToggleScore,
+  score,
+  scoreSelection,
+  selectedAttack,
+}: {
+  attackDataset: DatasetRecord | undefined;
+  attackModel: ModelVersionRecord | undefined;
+  attacks: AttackRunRecord[];
+  busy: boolean;
+  curveRuns: AttackRunRecord[];
+  datasets: DatasetRecord[];
+  models: ModelVersionRecord[];
+  onCalculateScore: () => void;
+  onOpenAttack: () => void;
+  onRunCurve: () => void;
+  onSelectAttack: (id: string) => void;
+  onToggleScore: (id: string) => void;
+  score: RobustnessScore | null;
+  scoreSelection: ReadonlySet<string>;
+  selectedAttack: AttackRunRecord | null;
+}) {
+  return (
+    <div className="page-content split-layout attack-layout">
+      <section className="panel runs-panel">
+        <div className="panel-heading">
+          <div>
+            <span className="kicker">Paired evaluation</span>
+            <h3>{attacks.length} bounded attack runs</h3>
+          </div>
+          <button className="button secondary compact" type="button" onClick={onOpenAttack}>
+            <Icon name="spark" size={15} /> Run attack
+          </button>
+          <button
+            className="button ghost compact"
+            disabled={!attackModel || !attackDataset || busy}
+            type="button"
+            onClick={onRunCurve}
+          >
+            <Icon name="activity" size={15} /> Strength curve
+          </button>
+        </div>
+        <AttackTable
+          attacks={attacks}
+          datasets={datasets}
+          models={models}
+          scoreSelection={scoreSelection}
+          selectedId={selectedAttack?.id}
+          onSelect={onSelectAttack}
+          onToggleScore={onToggleScore}
+        />
+      </section>
+
+      <aside className="panel inspector attack-inspector">
+        {selectedAttack ? (
+          <>
+            <div className="inspector-top">
+              <span className="attack-status">
+                <Icon
+                  name={selectedAttack.metrics.gradient_status === "healthy" ? "check" : "close"}
+                  size={13}
+                />
+                Gradient {selectedAttack.metrics.gradient_status}
+              </span>
+              <span className="mono faint">{formatDate(selectedAttack.created_at)}</span>
+            </div>
+            <span className="attack-title-badge">
+              {selectedAttack.config.algorithm.toUpperCase()} ·{" "}
+              {selectedAttack.config.norm === "l2" ? "L2" : "L∞"}
+            </span>
+            <h2>{attackModel?.architecture ?? "Adversarial evaluation"}</h2>
+            <p>
+              {attackDataset?.name.toUpperCase()} / {attackDataset?.split} ·{" "}
+              {selectedAttack.metrics.evaluated_samples} samples
+            </p>
+
+            <div className="accuracy-compare">
+              <div>
+                <span>
+                  <small>Clean accuracy</small>
+                  <b>{formatPercent(selectedAttack.metrics.clean_accuracy)}</b>
+                </span>
+                <i>
+                  <em style={{ width: `${selectedAttack.metrics.clean_accuracy * 100}%` }} />
+                </i>
+              </div>
+              <div className="robust">
+                <span>
+                  <small>Robust accuracy</small>
+                  <b>{formatPercent(selectedAttack.metrics.robust_accuracy)}</b>
+                </span>
+                <i>
+                  <em style={{ width: `${selectedAttack.metrics.robust_accuracy * 100}%` }} />
+                </i>
+              </div>
+            </div>
+
+            <div className="attack-success">
+              <span>
+                <Icon name="activity" />
+                <small>Attack success rate</small>
+              </span>
+              <strong>{formatPercent(selectedAttack.metrics.attack_success_rate)}</strong>
+              <p>
+                {selectedAttack.metrics.successful_attacks} of{" "}
+                {selectedAttack.metrics.clean_correct_samples} clean-correct samples changed to an
+                incorrect prediction.
+              </p>
+            </div>
+
+            <div className="metric-pairs attack-config">
+              <span>
+                <small>Epsilon</small>
+                <b>{(selectedAttack.config.epsilon * 255).toFixed(1)} / 255</b>
+              </span>
+              <span>
+                <small>Observed {selectedAttack.config.norm === "l2" ? "L2" : "L∞"}</small>
+                <b>
+                  {selectedAttack.config.norm === "l2"
+                    ? selectedAttack.metrics.maximum_observed_l2.toFixed(4)
+                    : `${(selectedAttack.metrics.maximum_observed_linf * 255).toFixed(2)} / 255`}
+                </b>
+              </span>
+              <span>
+                <small>Iterations</small>
+                <b>{selectedAttack.config.iterations}</b>
+              </span>
+              <span>
+                <small>Random start</small>
+                <b>{selectedAttack.config.random_start ? "Yes" : "No"}</b>
+              </span>
+            </div>
+
+            {selectedAttack.warnings.map((warning) => (
+              <div className="attack-warning" key={warning}>
+                <Icon name="activity" size={16} />
+                <span>
+                  <strong>Gradient warning</strong>
+                  {warning}
+                </span>
+              </div>
+            ))}
+
+            <button className="button primary full" disabled={busy} type="button" onClick={onOpenAttack}>
+              <Icon name="spark" size={16} /> Run another attack
+            </button>
+            <small className="inspector-footnote">
+              Robust accuracy uses the same sample population as clean accuracy.
+            </small>
+          </>
+        ) : (
+          <div className="empty-panel compact-empty">
+            <Icon name="spark" size={24} />
+            <h3>Challenge the baseline</h3>
+            <p>FGSM and PGD results will appear here.</p>
+            <button className="button primary compact" type="button" onClick={onOpenAttack}>
+              Run first attack
+            </button>
+          </div>
+        )}
+      </aside>
+      {curveRuns.length > 0 && <StrengthCurve runs={curveRuns} />}
+      <RobustnessScoreCard
+        busy={busy}
+        score={score}
+        selectedCount={scoreSelection.size}
+        onCalculate={onCalculateScore}
+      />
+    </div>
+  );
+}

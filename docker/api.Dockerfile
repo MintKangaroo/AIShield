@@ -11,9 +11,12 @@ WORKDIR /app
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN python -m pip install --no-cache-dir .
+RUN python -m pip install --no-cache-dir \
+      torch==2.13.0 torchvision==0.28.0 \
+      --index-url https://download.pytorch.org/whl/cpu \
+    && python -m pip install --no-cache-dir ".[ml,postgres,redis]"
 
-RUN mkdir -p /app/artifacts && chown -R aishield:aishield /app
+RUN mkdir -p /app/artifacts/models /app/data && chown -R aishield:aishield /app
 USER aishield
 
 EXPOSE 8000

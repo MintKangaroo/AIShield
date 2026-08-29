@@ -1,7 +1,7 @@
-.PHONY: install lint format format-check typecheck test schema-check web-install web-check compose-check check
+.PHONY: install lint format format-check typecheck test schema-check web-install web-check web-test compose-check check
 
 install:
-	python -m pip install -e ".[dev]"
+	python -m pip install -e ".[dev,ml]"
 
 lint:
 	python -m ruff check .
@@ -26,6 +26,9 @@ web-install:
 
 web-check:
 	npm --prefix web run check
+
+web-test:
+	npm --prefix web run test
 
 compose-check:
 	docker compose config --quiet
