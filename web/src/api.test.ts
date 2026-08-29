@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "./api";
+import { API_KEY_HEADER, clearApiKey, UnauthorizedError, writeApiKey } from "./apiKey";
 
 const fetchMock = vi.fn();
 
@@ -64,10 +65,56 @@ describe("api client", () => {
     await expect(api.attacks()).rejects.toThrow("502 Bad Gateway");
   });
 
-  it("builds an artifact download path bound to its run", () => {
-    expect(api.artifactUrl("run-1", "artifact-2")).toBe(
+  it("fetches an artifact with credentials rather than linking to it", async () => {
+    // A plain link cannot carry the API key header, so the bytes are fetched.
+    const blob = new Blob(["report"], { type: "application/json" });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, blob: () => Promise.resolve(blob) });
+    const createObjectURL = vi.fn(() => "blob:stub");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+
+    await api.downloadArtifact("run-1", "artifact-2", "report.json");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
       "/api/v1/registry/baselines/run-1/artifacts/artifact-2",
     );
+    expect(createObjectURL).toHaveBeenCalledWith(blob);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:stub");
+  });
+
+  it("surfaces an unauthorized download distinctly", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 401, statusText: "Unauthorized" });
+
+    await expect(api.downloadExperiment("run-1")).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it("attaches the stored API key to every request", async () => {
+    writeApiKey("a-key-long-enough-to-store");
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await api.datasets();
+
+    expect(fetchMock.mock.calls[0][1].headers[API_KEY_HEADER]).toBe(
+      "a-key-long-enough-to-store",
+    );
+    clearApiKey();
+  });
+
+  it("sends no key header when none is stored", async () => {
+    clearApiKey();
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await api.datasets();
+
+    expect(fetchMock.mock.calls[0][1].headers[API_KEY_HEADER]).toBeUndefined();
+  });
+
+  it("raises UnauthorizedError on a 401 so the console can ask for a key", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ detail: "an API key is required" }, { ok: false, status: 401 }),
+    );
+
+    await expect(api.datasets()).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
   it("reaches every registry collection the dashboard renders", async () => {

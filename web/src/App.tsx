@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { api } from "./api";
+import { clearApiKey, writeApiKey } from "./apiKey";
 import { Dialog } from "./components/Dialog";
 import { Icon, type IconName } from "./components/Icon";
+import { ApiKeyForm } from "./forms/ApiKeyForm";
 import { AttackForm } from "./forms/AttackForm";
 import { BaselineForm } from "./forms/BaselineForm";
 import { DatasetForm } from "./forms/DatasetForm";
@@ -51,6 +53,7 @@ type DialogName =
   | "defense"
   | "transfer"
   | "training"
+  | "api-key"
   | null;
 
 interface Toast {
@@ -150,6 +153,13 @@ function App() {
       setSelectedDefenseId(defenses[0].id);
     }
   }, [defenses, selectedDefenseId]);
+
+  useEffect(() => {
+    // The API answered but refused us: ask for a key instead of reporting an outage.
+    if (apiState === "unauthorized") {
+      setDialog("api-key");
+    }
+  }, [apiState]);
 
   useEffect(() => {
     if (!toast) return;
@@ -255,6 +265,30 @@ function App() {
       setCurveRuns(runs);
       await refresh(true);
     }, "Attack strength curve completed.");
+  }
+
+  async function submitApiKey(key: string) {
+    writeApiKey(key);
+    setDialog(null);
+    await refresh();
+  }
+
+  async function exportExperiment(baselineId: string) {
+    await perform(
+      () => api.downloadExperiment(baselineId),
+      "Experiment envelope downloaded.",
+    );
+  }
+
+  async function downloadArtifact(
+    baselineId: string,
+    artifactId: string,
+    filename: string,
+  ) {
+    await perform(
+      () => api.downloadArtifact(baselineId, artifactId, filename),
+      "Artifact downloaded.",
+    );
   }
 
   async function replayJournal() {
@@ -458,7 +492,9 @@ function App() {
                 ? `API ${health?.version} · ${health?.compute_device.toUpperCase()}`
                 : apiState === "checking"
                   ? "Connecting"
-                  : "API offline"}
+                  : apiState === "unauthorized"
+                    ? "API key required"
+                    : "API offline"}
             </span>
             <button
               aria-label="Refresh workspace"
@@ -474,6 +510,19 @@ function App() {
             </button>
           </div>
         </header>
+
+        {apiState === "unauthorized" && (
+          <div className="offline-banner unauthorized">
+            <Icon name="shield" />
+            <span>
+              <strong>This deployment requires an API key.</strong> The server answered but
+              refused the request.
+            </span>
+            <button type="button" onClick={() => setDialog("api-key")}>
+              Enter key
+            </button>
+          </div>
+        )}
 
         {apiState === "offline" && (
           <div className="offline-banner">
@@ -521,6 +570,7 @@ function App() {
             selectedModel={selectedModel}
             selectedRun={selectedRun}
             verification={selectedRun ? verifications[selectedRun.id] : undefined}
+            onExport={exportExperiment}
             onOpenBaseline={() => openWithPrerequisites("baseline")}
             onSelectRun={setSelectedId}
             onVerify={(run) => void verify(run)}
@@ -580,7 +630,11 @@ function App() {
         )}
 
         {page === "artifacts" && (
-          <ArtifactsPage artifactCount={artifactCount} baselines={baselines} />
+          <ArtifactsPage
+            artifactCount={artifactCount}
+            baselines={baselines}
+            onDownload={downloadArtifact}
+          />
         )}
 
         {page === "journal" && (
@@ -665,6 +719,24 @@ function App() {
             models={models}
             onCancel={() => setDialog(null)}
             onSubmit={createTraining}
+          />
+        </Dialog>
+      )}
+      {dialog === "api-key" && (
+        <Dialog
+          kicker="Access"
+          title="Enter the API key"
+          description="This deployment protects the registry. The key is kept for this browser tab only."
+          onClose={() => setDialog(null)}
+        >
+          <ApiKeyForm
+            busy={busy}
+            onCancel={() => setDialog(null)}
+            onClear={() => {
+              clearApiKey();
+              void refresh();
+            }}
+            onSubmit={submitApiKey}
           />
         </Dialog>
       )}

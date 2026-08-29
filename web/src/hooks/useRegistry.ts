@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
+import { UnauthorizedError } from "../apiKey";
 import { sortByCreatedAt } from "../format";
 import type {
   AttackRunRecord,
@@ -15,7 +16,8 @@ import type {
   TransferRunRecord,
 } from "../types";
 
-export type ApiState = "checking" | "ready" | "offline";
+/** `unauthorized` is distinct from `offline`: the API answered, it refused us. */
+export type ApiState = "checking" | "ready" | "offline" | "unauthorized";
 
 export interface RegistryData {
   health: HealthResponse | null;
@@ -93,8 +95,8 @@ export function useRegistry() {
         journal,
       });
       setApiState("ready");
-    } catch {
-      setApiState("offline");
+    } catch (error) {
+      setApiState(error instanceof UnauthorizedError ? "unauthorized" : "offline");
     } finally {
       inFlight.current = false;
       setRefreshing(false);

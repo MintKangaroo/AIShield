@@ -322,6 +322,7 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | --- | --- | --- |
 | `GET` | `/api/v1/health/live` | process liveness와 device |
 | `GET` | `/api/v1/health/ready` | metadata store와 job broker 접근 확인 (실패 시 503) |
+| — | `/api/v1/registry/**` | `AISHIELD_API_KEY` 설정 시 전부 키 필요 |
 | `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
 | `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
 | `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
@@ -464,6 +465,18 @@ x_adv = clamp(x + delta, 0, 1)
 
 ## ⚙️ 설정
 
+API 인증은 기본적으로 **꺼져 있습니다**. 로컬 데모와 CI가 비밀 관리 없이 동작하도록 한
+선택이며, 운영 배포에서만 켭니다.
+
+```dotenv
+AISHIELD_API_KEY=at-least-sixteen-characters
+```
+
+설정하면 `/api/v1/registry`의 모든 route가 키를 요구합니다(읽기 포함 — artifact가 증거이기
+때문입니다). Health probe와 OpenAPI 스키마는 열린 채로 둡니다. 키는 `X-API-Key` header
+또는 `Authorization: Bearer`로 보냅니다. Dashboard는 401을 받으면 키 입력을 요청하고,
+입력한 키는 탭이 닫히면 사라집니다.
+
 공개 dataset과 pretrained weight 다운로드는 기본적으로 꺼져 있습니다.
 
 ```dotenv
@@ -584,7 +597,7 @@ docker compose config --quiet
 
 - Ruff lint + format
 - mypy `strict = true`
-- pytest 183개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
+- pytest 240개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
   `AISHIELD_TEST_DATABASE_URL`·`AISHIELD_TEST_REDIS_URL`이 설정된 경우에만 실행되고,
   없으면 skip합니다)
 - 생성된 JSON Schema drift check

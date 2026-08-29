@@ -31,7 +31,8 @@ PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADA
 
 ## Package boundaries
 
-- `aishield.api` — HTTP transport, strict request model, error translation, OpenAPI.
+- `aishield.api` — HTTP transport, strict request model, error translation, OpenAPI,
+  and the optional API key applied at the registry router.
 - `aishield.core` — validated immutable runtime settings.
 - `aishield.registry` — adapter allowlist, runtime handle, safe checkpoint, hash, orchestration.
 - `aishield.evaluation` — clean metric, latency, environment capture, artifact rendering,

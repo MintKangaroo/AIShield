@@ -2548,6 +2548,16 @@ main {
   font-size: 9px;
 }
 
+.api-status.unauthorized i {
+  background: var(--amber);
+}
+
+.offline-banner.unauthorized {
+  border-color: rgb(245 184 75 / 28%);
+  color: var(--amber);
+  background: rgb(245 184 75 / 10%);
+}
+
 .replay-facts {
   padding: 4px 18px 14px;
 }

@@ -63,7 +63,12 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
     - ✅ portable experiment export/import
     - run-to-run comparison, sample triplets
 
-12. **Separate LLM security design**
+12. **Access control** *(in progress)*
+    - ✅ optional API key over the whole registry surface, off by default
+    - ✅ dashboard prompts for a key instead of reporting an outage
+    - per-key scopes and audit of who ran what
+
+13. **Separate LLM security design**
     - image engine과 분리된 threat/metric contract
     - prompt/response privacy controls
     - 실행 기능 전에 authorization과 benchmark policy 확정

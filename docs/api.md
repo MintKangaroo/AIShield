@@ -194,6 +194,36 @@ AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile worker up --build
 ```
 
+## Authentication
+
+기본값은 **열림**입니다. `AISHIELD_API_KEY`(16자 이상)를 설정하면 `/api/v1/registry`의
+**모든** route가 키를 요구합니다. 라우터 단위로 적용하므로 새 route를 추가할 때 보호를
+빠뜨릴 수 없습니다.
+
+| 경로 | 키 필요 |
+| --- | --- |
+| `/api/v1/registry/**` | ✅ 읽기 포함 (artifact는 증거이므로) |
+| `/api/v1/health/live`, `/health/ready` | ❌ 프로브는 비밀 없이 동작해야 함 |
+| `/api/v1`, `/api/docs`, `/api/openapi.json` | ❌ 스키마만, 데이터 없음 |
+
+키는 두 header 중 하나로 보냅니다.
+
+```bash
+curl -H "X-API-Key: $AISHIELD_API_KEY" http://localhost:8000/api/v1/registry/datasets
+curl -H "Authorization: Bearer $AISHIELD_API_KEY" http://localhost:8000/api/v1/registry/datasets
+```
+
+비교는 `secrets.compare_digest`로 수행하므로 타이밍으로 키를 복원할 수 없습니다. 키는
+로그에 남지 않고 URL에 들어가지 않습니다 — query parameter로 받으면 proxy와 server 로그에
+그대로 남기 때문입니다.
+
+Dashboard는 401을 받으면 "API가 죽었다"가 아니라 **키 입력을 요청**합니다. 입력한 키는
+`sessionStorage`에만 두어 탭을 닫으면 사라집니다. Artifact와 envelope 다운로드는 header를
+실을 수 없는 `<a href>` 대신 인증된 fetch 후 blob으로 저장합니다.
+
+인증되지 않은 요청은 존재하지 않는 리소스에도 404가 아니라 401을 반환합니다. 키 없는
+호출자가 무엇이 존재하는지 알 수 없어야 하기 때문입니다.
+
 ## Reproducible images
 
 모든 base image는 tag가 아니라 digest로 고정되어 있습니다. Tag는 움직이므로, 고정하지

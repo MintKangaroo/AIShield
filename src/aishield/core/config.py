@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     model_root: Path = Path("artifacts/models")
     dataset_root: Path = Path("data")
     allow_public_downloads: bool = False
+    # Unset means the API is open, which keeps the local demo and CI free of
+    # secret management. Setting it protects every registry route at once.
+    # The minimum length refuses a key weak enough to be guessed.
+    api_key: SecretStr | None = Field(default=None, min_length=16)
     # One heavy evaluation at a time by default: a single box cannot honestly run
     # several full torch evaluations concurrently without distorting latency evidence.
     max_concurrent_runs: int = Field(default=1, ge=1, le=64)

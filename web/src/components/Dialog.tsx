@@ -5,11 +5,14 @@ import { Icon } from "./Icon";
 export function Dialog({
   children,
   description,
+  kicker = "New evidence",
   onClose,
   title,
 }: {
   children: ReactNode;
   description: string;
+  /** Overridden for dialogs that are not about producing evidence. */
+  kicker?: string;
   onClose: () => void;
   title: string;
 }) {
@@ -24,7 +27,7 @@ export function Dialog({
       >
         <div className="dialog-header">
           <div>
-            <span className="kicker">New evidence</span>
+            <span className="kicker">{kicker}</span>
             <h2 id="dialog-title">{title}</h2>
             <p>{description}</p>
           </div>

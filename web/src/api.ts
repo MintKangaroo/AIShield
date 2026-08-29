@@ -21,6 +21,8 @@ import type {
   TransferRunRecord,
 } from "./types";
 
+import { apiKeyHeaders, UnauthorizedError } from "./apiKey";
+
 const registryPath = "/api/v1/registry";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -28,6 +30,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...apiKeyHeaders(),
       ...init?.headers,
     },
   });
@@ -42,9 +45,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Preserve the HTTP status when the server did not return structured JSON.
     }
-    throw new Error(message);
+    // Distinguished so the console can ask for a key instead of reporting the
+    // deployment as broken.
+    throw response.status === 401 ? new UnauthorizedError(message) : new Error(message);
   }
   return response.json() as Promise<T>;
+}
+
+/**
+ * Save a file the API serves. A plain `<a href>` cannot carry the API key
+ * header, so the bytes are fetched with credentials and handed to the browser
+ * as a blob. Putting the key in the URL instead would leak it into proxy and
+ * server logs.
+ */
+async function download(path: string, filename: string): Promise<void> {
+  const response = await fetch(path, { headers: apiKeyHeaders() });
+  if (!response.ok) {
+    const message = `${response.status} ${response.statusText}`;
+    throw response.status === 401 ? new UnauthorizedError(message) : new Error(message);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function post<T>(path: string, payload?: unknown): Promise<T> {
@@ -97,7 +127,11 @@ export const api = {
     }),
   verifyBaseline: (baselineId: string) =>
     post<BaselineVerification>(`${registryPath}/baselines/${baselineId}/verify`),
-  artifactUrl: (baselineId: string, artifactId: string) =>
-    `${registryPath}/baselines/${baselineId}/artifacts/${artifactId}`,
-  experimentUrl: (baselineId: string) => `${registryPath}/baselines/${baselineId}/experiment`,
+  downloadArtifact: (baselineId: string, artifactId: string, filename: string) =>
+    download(`${registryPath}/baselines/${baselineId}/artifacts/${artifactId}`, filename),
+  downloadExperiment: (baselineId: string) =>
+    download(
+      `${registryPath}/baselines/${baselineId}/experiment`,
+      `experiment-${baselineId}.json`,
+    ),
 };
