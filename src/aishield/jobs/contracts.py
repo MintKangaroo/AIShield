@@ -14,6 +14,11 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+#: Statuses a worker will never transition out of.
+TERMINAL_STATUSES = frozenset({JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED})
 
 
 class JobRecord(RegistryModel):
@@ -29,3 +34,15 @@ class JobRecord(RegistryModel):
     @classmethod
     def queued(cls, job_id: UUID, kind: str) -> "JobRecord":
         return cls(id=job_id, kind=kind, status=JobStatus.QUEUED, created_at=datetime.now(UTC))
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in TERMINAL_STATUSES
+
+
+class JobQueueFullError(RuntimeError):
+    """Raised when accepting another job would exceed the configured backlog."""
+
+
+class JobNotCancellableError(RuntimeError):
+    """Raised when a job has already started and cannot be cancelled safely."""

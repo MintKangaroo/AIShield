@@ -37,6 +37,8 @@ services:
       AISHIELD_LOG_LEVEL: ${AISHIELD_LOG_LEVEL:-INFO}
       AISHIELD_COMPUTE_DEVICE: cpu
       AISHIELD_DATABASE_URL: postgresql://${POSTGRES_USER:-aishield}:${POSTGRES_PASSWORD:-aishield}@postgres:5432/${POSTGRES_DB:-aishield}
+      # "journal" keeps metadata in a local file; "postgresql" shares it across processes.
+      AISHIELD_METADATA_BACKEND: ${AISHIELD_METADATA_BACKEND:-journal}
       AISHIELD_REDIS_URL: redis://redis:6379/0
       AISHIELD_ARTIFACT_ROOT: /app/artifacts
       AISHIELD_MODEL_ROOT: /app/artifacts/models

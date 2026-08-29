@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -17,6 +18,18 @@ class ApiFixtureMNISTAdapter(MNISTAdapter):
     def _create_dataset(self, root: Path, split: DatasetSplit, *, download: bool) -> Dataset[Any]:
         (root / "api.fixture").write_bytes(b"api-dataset")
         return TensorDataset(torch.zeros(4, 1, 28, 28), torch.tensor([0, 1, 2, 3]))
+
+
+def _await_job(client: TestClient, job_id: str, timeout: float = 60.0) -> dict[str, Any]:
+    """Poll one background job until it reaches a terminal status."""
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        record: dict[str, Any] = client.get(f"/api/v1/registry/jobs/{job_id}").json()
+        if record["status"] in {"succeeded", "failed", "cancelled"}:
+            return record
+        time.sleep(0.05)
+    raise AssertionError(f"job {job_id} did not finish within {timeout}s")
 
 
 def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
@@ -283,6 +296,12 @@ def test_registry_api_loads_lists_and_evaluates(tmp_path: Path) -> None:
         assert queued_job.status_code == 202
         job_id = queued_job.json()["id"]
         assert client.get(f"/api/v1/registry/jobs/{job_id}").status_code == 200
+
+        # The queued worker holds the single bounded run slot, so wait for it to
+        # finish before requesting a synchronous run that would otherwise get 429.
+        job = _await_job(client, job_id)
+        assert job["status"] == "succeeded", job["error"]
+        assert job["result_id"] is not None
 
         training_response = client.post(
             "/api/v1/registry/training",

@@ -38,9 +38,14 @@ ml = [
   "torch==2.13.0",
   "torchvision==0.28.0",
 ]
+postgres = [
+  "psycopg[binary]>=3.2,<4",
+  "sqlalchemy>=2.0,<3",
+]
 
 [project.scripts]
 aishield-api = "aishield.api.main:run"
+aishield-run = "aishield.cli.experiment:main"
 aishield-export-schema = "aishield.schemas.export:main"
 
 [tool.hatch.build.targets.wheel]
@@ -62,7 +67,7 @@ strict = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["torchvision", "torchvision.*"]
+module = ["torchvision", "torchvision.*", "yaml"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

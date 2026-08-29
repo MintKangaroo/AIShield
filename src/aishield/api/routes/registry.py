@@ -20,7 +20,7 @@ from aishield.evaluation.contracts import (
     BaselineVerification,
 )
 from aishield.evaluation.score import RobustnessScore, calculate_score
-from aishield.jobs.contracts import JobRecord
+from aishield.jobs.contracts import JobNotCancellableError, JobRecord
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -28,8 +28,14 @@ from aishield.registry.contracts import (
     EvaluationResult,
     ModelVersionRecord,
 )
-from aishield.registry.errors import RegistryError, RegistryNotFoundError
+from aishield.registry.errors import (
+    RegistryBusyError,
+    RegistryError,
+    RegistryNotFoundError,
+)
+from aishield.registry.replay import JournalReplaySummary
 from aishield.registry.service import RegistryService
+from aishield.schemas.experiment import ExperimentResult
 from aishield.training.contracts import TrainingConfig, TrainingRunRecord, TrainingStrategy
 
 router = APIRouter(prefix="/registry", tags=["registry"])
@@ -193,6 +199,13 @@ RegistryDependency = Annotated[RegistryService, Depends(get_registry)]
 def _translate_registry_error(error: Exception) -> HTTPException:
     if isinstance(error, RegistryNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+    if isinstance(error, RegistryBusyError):
+        # The request is valid; the machine is saturated. Invite a retry.
+        return HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(error),
+            headers={"Retry-After": "30"},
+        )
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
 
 
@@ -205,7 +218,7 @@ def _translate_registry_error(error: Exception) -> HTTPException:
 def load_dataset(payload: DatasetLoadRequest, registry: RegistryDependency) -> DatasetRecord:
     try:
         return registry.load_dataset(payload.name, payload.split, download=payload.download)
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -229,7 +242,7 @@ def load_small_cnn(
             seed=payload.seed,
             checkpoint=payload.checkpoint,
         )
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -249,7 +262,7 @@ def load_torchvision_model(
             num_classes=payload.num_classes,
             seed=payload.seed,
         )
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -272,7 +285,7 @@ def evaluate(payload: EvaluationRequest, registry: RegistryDependency) -> Evalua
             batch_size=payload.batch_size,
             max_samples=payload.max_samples,
         )
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -297,7 +310,7 @@ def run_baseline(
                 warmup_batches=payload.warmup_batches,
             ),
         )
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -318,7 +331,7 @@ def list_baselines(registry: RegistryDependency) -> list[BaselineRunRecord]:
 def get_baseline(baseline_id: UUID, registry: RegistryDependency) -> BaselineRunRecord:
     try:
         return registry.get_baseline(baseline_id)
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -330,7 +343,7 @@ def get_baseline(baseline_id: UUID, registry: RegistryDependency) -> BaselineRun
 def verify_baseline(baseline_id: UUID, registry: RegistryDependency) -> BaselineVerification:
     try:
         return registry.verify_clean_baseline(baseline_id)
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -396,7 +409,7 @@ def run_attack(
             payload.dataset_id,
             config=config,
         )
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -429,9 +442,7 @@ def run_attack_curve(
     try:
         for epsilon in payload.epsilons:
             step_size = (
-                epsilon
-                if is_fgsm or is_deepfool or is_cw
-                else epsilon * payload.step_fraction
+                epsilon if is_fgsm or is_deepfool or is_cw else epsilon * payload.step_fraction
             )
             for restart in range(payload.restarts):
                 records.append(
@@ -452,7 +463,7 @@ def run_attack_curve(
                     )
                 )
         return records
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -464,7 +475,7 @@ def run_attack_curve(
 def get_attack(attack_id: UUID, registry: RegistryDependency) -> AttackRunRecord:
     try:
         return registry.get_attack(attack_id)
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -516,7 +527,7 @@ def run_defense(
             defense=DefenseConfig(kind=payload.defense, bit_depth=payload.bit_depth),
             attack=attack,
         )
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -562,7 +573,7 @@ def run_transfer(
             payload.dataset_id,
             attack=config,
         )
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -603,7 +614,7 @@ def train_registered_model(
             ),
         )
         return record
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -640,7 +651,7 @@ def queue_training(payload: TrainingRequest, registry: RegistryDependency) -> Jo
                 trades_beta=payload.trades_beta,
             ),
         )
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -655,6 +666,75 @@ def get_job(job_id: UUID, registry: RegistryDependency) -> JobRecord:
         return registry.get_job(job_id)
     except RegistryNotFoundError as error:
         raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/jobs/{job_id}/cancel",
+    response_model=JobRecord,
+    summary="Cancel a background job that has not started",
+)
+def cancel_job(job_id: UUID, registry: RegistryDependency) -> JobRecord:
+    try:
+        return registry.cancel_job(job_id)
+    except JobNotCancellableError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    except RegistryNotFoundError as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/baselines/{baseline_id}/experiment",
+    response_model=ExperimentResult,
+    summary="Export one baseline and its evidence as a portable envelope",
+)
+def export_experiment(baseline_id: UUID, registry: RegistryDependency) -> ExperimentResult:
+    try:
+        return registry.export_experiment(baseline_id)
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/experiments",
+    response_model=ExperimentResult,
+    status_code=status.HTTP_201_CREATED,
+    summary="Import a portable experiment envelope as auditable evidence",
+)
+def import_experiment(payload: ExperimentResult, registry: RegistryDependency) -> ExperimentResult:
+    try:
+        return registry.import_experiment(payload)
+    except (RegistryError, ValueError) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/experiments",
+    response_model=list[ExperimentResult],
+    summary="List imported experiment envelopes",
+)
+def list_experiments(registry: RegistryDependency) -> list[ExperimentResult]:
+    return registry.list_experiments()
+
+
+@router.get(
+    "/experiments/{experiment_id}",
+    response_model=ExperimentResult,
+    summary="Get one imported experiment envelope",
+)
+def get_experiment(experiment_id: UUID, registry: RegistryDependency) -> ExperimentResult:
+    try:
+        return registry.get_experiment(experiment_id)
+    except RegistryNotFoundError as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.post(
+    "/journal/replay",
+    response_model=JournalReplaySummary,
+    summary="Rebuild the in-memory index from the metadata journal",
+)
+def replay_journal(registry: RegistryDependency) -> JournalReplaySummary:
+    return registry.replay_journal()
 
 
 @router.get(
@@ -678,7 +758,7 @@ def calculate_robustness_score(
 ) -> RobustnessScore:
     try:
         return calculate_score([registry.get_attack(run_id) for run_id in payload.attack_run_ids])
-    except (RegistryError, RegistryNotFoundError, ValueError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError, ValueError) as error:
         raise _translate_registry_error(error) from error
 
 
@@ -694,7 +774,7 @@ def download_baseline_artifact(
 ) -> FileResponse:
     try:
         artifact, path = registry.get_baseline_artifact(baseline_id, artifact_id)
-    except (RegistryError, RegistryNotFoundError) as error:
+    except (RegistryBusyError, RegistryError, RegistryNotFoundError) as error:
         raise _translate_registry_error(error) from error
     return FileResponse(
         path,

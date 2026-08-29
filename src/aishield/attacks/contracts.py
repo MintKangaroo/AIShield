@@ -56,9 +56,7 @@ class AttackConfig(RegistryModel):
             if self.norm != "l2":
                 raise ValueError("DeepFool and Carlini-Wagner require norm=l2")
         elif self.norm != "linf":
-            raise ValueError(
-                "FGSM, BIM, PGD, AutoAttack, APGD, FAB, and Square require norm=linf"
-            )
+            raise ValueError("FGSM, BIM, PGD, AutoAttack, APGD, FAB, and Square require norm=linf")
         if self.algorithm is AttackAlgorithm.CARLINI_WAGNER and self.random_start:
             raise ValueError("Carlini-Wagner requires random_start=false")
         if self.algorithm is AttackAlgorithm.AUTOATTACK and self.random_start:

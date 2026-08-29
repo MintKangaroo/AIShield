@@ -7,3 +7,7 @@ class RegistryError(ValueError):
 
 class RegistryNotFoundError(LookupError):
     """Raised when a requested in-memory registry entry does not exist."""
+
+
+class RegistryBusyError(RuntimeError):
+    """Raised when every bounded evaluation slot is already occupied."""

@@ -1,15 +1,22 @@
-"""Append-only metadata journal used as a lightweight persistence boundary."""
+"""Append-only metadata journal: the default, dependency-free metadata store."""
 
 import json
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any
 
 from pydantic import BaseModel
 
+from aishield.registry.errors import RegistryError
+
 
 class RegistryJournal:
-    """Durably append registry metadata without persisting live torch objects."""
+    """Durably append registry metadata without persisting live torch objects.
+
+    This is one implementation of :class:`~aishield.registry.store.MetadataStore`.
+    It needs no server, which keeps the default demo stack a single process.
+    """
 
     def __init__(self, root: Path) -> None:
         self.path = root / "registry" / "journal.jsonl"
@@ -38,3 +45,12 @@ class RegistryJournal:
                 if isinstance(payload, dict) and isinstance(payload.get("record"), dict):
                     entries.append(payload)
         return entries
+
+    def close(self) -> None:
+        """Nothing to release: every append is flushed as it is written."""
+
+    def check_ready(self) -> None:
+        """Confirm the journal directory is writable; there is no server to reach."""
+
+        if not os.access(self.path.parent, os.W_OK):
+            raise RegistryError(f"journal directory is not writable: {self.path.parent}")
