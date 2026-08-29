@@ -12,6 +12,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | --- | --- | --- |
 | `GET` | `/api/v1` | Service version과 release scope |
 | `GET` | `/api/v1/health/live` | Process liveness와 configured device |
+| `GET` | `/api/v1/health/ready` | 설정된 metadata store 사용 가능 여부 (실패 시 503) |
 | `POST` | `/api/v1/registry/datasets` | Built-in dataset split load |
 | `GET` | `/api/v1/registry/datasets` | 현재 process의 dataset list |
 | `POST` | `/api/v1/registry/models/small-cnn` | Seeded/checkpoint SmallCNN load |
@@ -37,11 +38,22 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/training/jobs` | Queue bounded background training job |
 | `GET` | `/api/v1/registry/jobs` | Background job list |
 | `GET` | `/api/v1/registry/jobs/{id}` | Background job status |
+| `POST` | `/api/v1/registry/jobs/{id}/cancel` | Cancel a job that has not started |
+| `GET` | `/api/v1/registry/baselines/{id}/experiment` | Portable experiment envelope export |
+| `POST` | `/api/v1/registry/experiments` | Portable experiment envelope import |
+| `GET` | `/api/v1/registry/experiments` | Imported envelope list |
+| `GET` | `/api/v1/registry/experiments/{id}` | Imported envelope |
 | `GET` | `/api/v1/registry/journal` | Append-only metadata audit/export stream |
+| `POST` | `/api/v1/registry/journal/replay` | Rebuild the in-memory index from stored metadata |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
-404입니다.
+404, 이미 시작된 job의 취소 시도는 409입니다. 모든 bounded evaluation slot이 사용 중이면
+요청은 유효하지만 실행할 수 없으므로 `Retry-After`와 함께 429를 반환합니다.
+
+모든 응답에는 `X-Request-ID` header가 포함됩니다. 요청에 같은 header를 보내면 그 값이
+그대로 사용되어 proxy 구간까지 하나의 trace로 묶입니다. 서버 로그는 JSON 한 줄 형식이며
+`request_id`, `run_id`, `run_kind`, `duration_ms`를 포함합니다.
 
 ## Dataset policy
 
@@ -123,12 +135,67 @@ robust metric을 `TrainingRunRecord`로 보존합니다. `step_size`는 `epsilon
 
 ## Persistence boundary
 
-Every loaded registry record and completed run is appended to
-`<artifact_root>/registry/journal.jsonl` with canonical JSON and flushed immediately.
-The journal is an audit/export boundary for future PostgreSQL and worker migration; live
-PyTorch objects remain process-local and are never serialized into the journal.
+Every loaded registry record and completed run is appended to the configured metadata
+store as canonical JSON, and the write is committed before the API returns. Live PyTorch
+objects remain process-local and never cross this boundary.
+
+`AISHIELD_METADATA_BACKEND`으로 backend를 고릅니다.
+
+| 값 | 저장 위치 | 쓰임 |
+| --- | --- | --- |
+| `journal` (기본) | `<artifact_root>/registry/journal.jsonl` | 서버가 필요 없는 단일 프로세스 데모 |
+| `postgresql` | `registry_metadata` 테이블 | 여러 프로세스가 하나의 registry를 공유 |
+
+두 backend는 같은 계약을 만족하며 동일한 테스트 스위트로 검증됩니다. PostgreSQL schema는
+journal을 그대로 반영합니다. 즉 record 하나가 row 하나이고 payload는 같은 canonical JSON
+입니다. `model_version_id`/`dataset_id`는 인덱스를 위해 컬럼으로 뽑아내지만 payload의
+투영일 뿐이며 별도의 진실 원천이 아닙니다. 두 backend 모두 append-only이므로 같은 identity를
+다시 기록해도 기존 row를 덮어쓰지 않습니다.
+
+`/api/v1/registry/journal`과 `/journal/replay`는 backend와 무관하게 설정된 store를 읽습니다.
+
+### Restart recovery
+
+`AISHIELD_REPLAY_JOURNAL_ON_START`(기본 `true`)이면 프로세스 시작 시 저장된 metadata를
+재생해 in-memory index를 복구합니다. `POST /api/v1/registry/journal/replay`로 직접 실행할 수도
+있습니다. 복구 규칙은 다음과 같습니다.
+
+- Run evidence(baseline/attack/defense/transfer/training)는 항상 복구됩니다.
+- Dataset과 model handle은 디스크의 파일이 기록된 content hash와 여전히 일치할 때만
+  복구됩니다. 불일치하면 조용히 넘어가지 않고 `skipped`에 이유가 남습니다.
+- 복구된 model은 기록된 identity(`source`, `version`, UUID)를 그대로 유지합니다.
+- Background job은 절대 복구하지 않습니다. 죽은 프로세스의 queued job은 실행된 적이
+  없으므로 되살리면 거짓 증거가 됩니다.
+- Journal이 손상되어도 API 기동은 실패하지 않습니다. 오류는 로그로 남기고 계속합니다.
+
+## Concurrency boundary
+
+`AISHIELD_MAX_CONCURRENT_RUNS`(기본 `1`)가 동시에 실행 가능한 heavy evaluation 수를
+제한합니다. 동기 API 요청은 slot이 없으면 즉시 429를 받고, background worker는
+`AISHIELD_JOB_SLOT_TIMEOUT_SECONDS`까지 대기합니다. Job queue는
+`AISHIELD_JOB_MAX_PENDING`(기본 16)을 초과하면 새 job을 거부하고,
+`AISHIELD_JOB_RETAINED_RECORDS`(기본 256)개를 넘는 완료 job record는 오래된 것부터
+정리합니다.
+
+## Portable experiment envelope
+
+`GET /api/v1/registry/baselines/{id}/experiment`는 하나의 baseline과 같은
+model/dataset을 대상으로 한 모든 attack·defense 증거를 `schemas/experiment-result.schema.json`
+계약에 맞는 self-contained envelope으로 내보냅니다. Aggregate score를 포함하더라도 그
+근거가 된 raw metric이 함께 남으므로 점수만 남고 원본이 사라지는 일은 없습니다.
+`POST /api/v1/registry/experiments`로 다시 가져올 수 있으며, 가져온 envelope은 감사용
+증거일 뿐 새 run을 만들 수 있는 runnable handle이 아닙니다.
 
 ## Runtime boundary
 
-Registry handle과 live run index는 process-local입니다. metadata journal과 model/dataset
-artifact는 configured storage에 남으며, PostgreSQL/Redis worker migration은 다음 운영 단계입니다.
+Registry handle(torch module, dataset object)과 live run index는 process-local입니다.
+Metadata와 model/dataset artifact는 configured storage에 남습니다. `postgresql` backend에서는
+여러 프로세스가 같은 metadata를 공유하지만, runtime handle은 각 프로세스가 replay로 직접
+복구합니다. Redis 기반 worker isolation은 다음 운영 단계입니다.
+
+## Health boundary
+
+`/health/live`는 프로세스 liveness만 보고합니다. dependency 상태를 가장하지 않으므로
+데이터베이스가 죽어도 200을 반환합니다. `/health/ready`는 설정된 metadata store에 실제로
+접근해 보고 실패하면 503을 반환합니다. 두 신호를 분리하는 이유는, 증거를 기록할 수 없는
+프로세스를 healthy로 보고하면 정작 중요한 실패가 가려지기 때문입니다.

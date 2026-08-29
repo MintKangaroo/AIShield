@@ -18,13 +18,16 @@ Browser
     REG --> DEFENSE["Bit-depth defense<br/>before / after / adaptive"]
     DEFENSE --> EVIDENCE
 
-PostgreSQL ─ metadata persistence boundary (future)
+PostgreSQL ─ optional shared metadata store (AISHIELD_METADATA_BACKEND=postgresql)
 Redis      ─ isolated worker boundary (future)
 ```
 
-PostgreSQL과 Redis는 Compose에서 향후 service boundary를 고정하지만 현재 registry에서
-사용하지 않습니다. 따라서 `/health/live`는 process liveness만 보고하며 dependency
-readiness를 가장하지 않습니다.
+PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADATA_BACKEND=postgresql`).
+기본값 `journal`은 서버 없이 단일 프로세스로 동작합니다. Redis는 아직 Compose에서 boundary만
+고정하고 registry에서 사용하지 않습니다.
+
+`/health/live`는 여전히 process liveness만 보고합니다. 실제 dependency 확인은
+`/health/ready`가 담당하며, 설정된 store에 접근해 보고 실패하면 503을 반환합니다.
 
 ## Package boundaries
 
@@ -35,6 +38,10 @@ readiness를 가장하지 않습니다.
   exact-config verification.
 - `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner.
 - `aishield.schemas` — portable versioned experiment exchange contract.
+- `aishield.jobs` — bounded worker queue, job status contract, backlog/retention limits.
+- `aishield.registry.store` — metadata persistence protocol shared by the journal and
+  PostgreSQL backends; runtime handles never cross it.
+- `aishield.cli` — headless experiment runner producing the exchange envelope.
 
 Attack runner는 API에 의존하지 않습니다. Raw input tensor에 perturbation을 만들고
 `ModelBundle.preprocess`를 통과한 model loss의 gradient를 사용합니다. 모든 adversarial
@@ -58,8 +65,31 @@ Artifact는 configured root 아래 파일이며 API record에 URI, media type, s
 보존합니다. Download endpoint는 run에 등록된 artifact인지, resolved path가 artifact root
 아래인지, symlink가 아닌 regular file인지 다시 확인합니다.
 
-Registry metadata와 run record는 현재 memory에 있으므로 process restart 후 재등록해야
-합니다. Dataset/model/baseline 파일은 local directory 또는 Docker volume에 남습니다.
+Registry metadata와 run record는 memory에 있지만, 모든 record는 append-only journal에도
+기록됩니다. Process가 시작되면 journal을 재생해 index를 복구하므로 재등록이 필요하지
+않습니다. Dataset/model/baseline 파일은 local directory 또는 Docker volume에 남습니다.
+
+### Metadata replay
+
+```text
+configured metadata store (journal file 또는 PostgreSQL table)
+  -> run evidence 복구 (항상)
+  -> dataset/model handle 복구 (기록된 content hash가 디스크와 일치할 때만)
+  -> 기록된 model identity(source/version/UUID) 유지
+  -> background job은 복구하지 않음 (죽은 프로세스의 queued job은 실행된 적이 없음)
+  -> 손상된 entry는 skip 사유와 함께 보고, API 기동은 실패하지 않음
+```
+
+### Execution slots
+
+모든 heavy evaluation은 프로세스 전역 `BoundedSemaphore`를 통과합니다. 동기 API 요청은
+slot이 없으면 즉시 429를 받고, background worker는 대기합니다. 이 경계가 없으면 여러 개의
+전체 torch 평가가 한 장비에서 겹치며 latency 근거가 왜곡되고 메모리가 고갈됩니다.
+
+### Observability
+
+모든 로그는 JSON 한 줄이며 `request_id`(요청 단위), `run_kind`, `run_id`, `duration_ms`를
+포함합니다. `X-Request-ID`를 보내면 그 값이 proxy 구간까지 그대로 전파됩니다.
 
 ## Execution sequence
 

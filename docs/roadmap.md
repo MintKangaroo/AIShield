@@ -37,9 +37,13 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ append-only JSON metadata journal and flush boundary
    - ✅ journal read/audit API
    - ✅ bounded in-process worker queue and job status API
-   - PostgreSQL registry/run metadata
+   - ✅ journal replay restart recovery with content-hash verification
+   - ✅ bounded queue backlog, retention, cancellation, and job journaling
+   - ✅ process-wide concurrent-run limit with 429 back-pressure
+   - ✅ PostgreSQL registry/run metadata (opt-in backend behind one shared contract)
+   - ✅ readiness endpoint that checks the configured store instead of guessing
    - Redis-backed job queue and resource-bounded worker
-   - process restart recovery and artifact garbage-collection policy
+   - artifact garbage-collection policy
    - CPU/CUDA worker image digest pinning
 
 10. **Transparent robustness score**
@@ -47,10 +51,15 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
     - ✅ raw input metrics retained alongside every component
     - ✅ missing/invalid attack evidence cannot silently improve the score
 
-11. **Dashboard expansion**
-    - strength curves, run-to-run comparison, sample triplets
-    - defense before/after/adaptive view
-    - portable experiment export/import
+11. **Dashboard expansion** *(in progress)*
+    - ✅ strength curves
+    - ✅ defense before/after/adaptive view와 gradient masking 경고
+    - ✅ surrogate-to-target transfer view
+    - ✅ background job/training 상태 추적과 진행 중 자동 갱신
+    - ✅ robustness score 집계 UI
+    - ✅ append-only journal 감사 view
+    - ✅ portable experiment export/import
+    - run-to-run comparison, sample triplets
 
 12. **Separate LLM security design**
     - image engine과 분리된 threat/metric contract

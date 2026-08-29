@@ -176,9 +176,15 @@ Dashboard는 소개용 landing page가 아니라 API와 연결된 연구 console
 
 - **Overview** — API/device 상태, clean·robust 성능, class recall, confusion matrix
 - **Baseline runs** — run ledger, 모델·dataset 연결, hash, latency, exact-rerun 검증
-- **Attack lab** — FGSM/BIM/PGD/DeepFool/CW/AutoAttack 생성, norm·epsilon·iteration 설정, clean/robust/ASR 비교
+- **Attack lab** — FGSM/BIM/PGD/DeepFool/CW/AutoAttack/APGD/FAB/Square 생성, norm·epsilon·iteration
+  설정, clean/robust/ASR 비교, epsilon strength curve, 선택한 run에 대한 robustness score 집계
+- **Defense lab** — bit-depth preprocessing defense의 before/after/adaptive 비교와 gradient masking
+  경고, surrogate → target black-box transfer 결과
+- **Jobs & training** — adversarial training/TRADES 실행과 bounded background job 상태(queued/
+  running/succeeded/failed) 추적. 진행 중인 job이 있으면 자동으로 갱신
 - **Registry** — dataset provenance와 model state/artifact identity 확인
 - **Artifacts** — baseline JSON과 confusion matrix PNG 다운로드
+- **Journal** — append-only metadata journal을 kind별로 필터링하고 원본 JSON 확인
 - **Guided onboarding** — dataset → model → baseline 순서가 비어 있으면 다음 작업을 안내
 - **Responsive UI** — desktop, tablet, mobile layout 지원
 
@@ -239,7 +245,8 @@ AISHIELD_SCREENSHOT_URL=http://localhost:3000 \
   npm --prefix web run screenshot
 ```
 
-환경 변수 `AISHIELD_SCREENSHOT_PAGE`에 `attacks`, `runs`, `registry`, `artifacts` 중 하나를
+환경 변수 `AISHIELD_SCREENSHOT_PAGE`에 `overview`, `runs`, `attacks`, `defenses`, `jobs`,
+`registry`, `artifacts`, `journal` 중 하나를
 지정하면 해당 화면을 캡처합니다. README의 이미지는 1440 px viewport의 full-page capture,
 dark color scheme, animation disabled 조건으로 만들어집니다. 브라우저가 별도 컨테이너나
 호스트에서 실행 중이면 `AISHIELD_BROWSER_CDP=http://127.0.0.1:9222`처럼 Chrome DevTools
@@ -314,6 +321,7 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | Method | Endpoint | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/health/live` | process liveness와 device |
+| `GET` | `/api/v1/health/ready` | 설정된 metadata store 접근 확인 (실패 시 503) |
 | `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
 | `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
 | `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
@@ -324,7 +332,42 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | `GET` | `/api/v1/registry/baselines/{id}/artifacts/{artifact_id}` | evidence download |
 | `POST / GET` | `/api/v1/registry/attacks` | FGSM/BIM/PGD/DeepFool/CW/AutoAttack run / list |
 | `POST / GET` | `/api/v1/registry/defenses` | preprocessing defense before/after evaluation / list |
+| `POST / GET` | `/api/v1/registry/defenses/transfer` | surrogate-to-target black-box transfer / list |
 | `GET` | `/api/v1/registry/attacks/{id}` | adversarial evidence |
+| `POST` | `/api/v1/registry/robustness-score` | transparent aggregate over attack evidence |
+| `POST / GET` | `/api/v1/registry/training` | adversarial training·TRADES run / list |
+| `POST` | `/api/v1/registry/training/jobs` | bounded background training job 등록 |
+| `GET` | `/api/v1/registry/jobs` · `/jobs/{id}` | background job list / status |
+| `POST` | `/api/v1/registry/jobs/{id}/cancel` | 아직 시작되지 않은 job 취소 |
+| `GET` | `/api/v1/registry/baselines/{id}/experiment` | portable experiment envelope export |
+| `POST / GET` | `/api/v1/registry/experiments` | envelope import / list |
+| `GET` | `/api/v1/registry/journal` | append-only metadata audit stream |
+| `POST` | `/api/v1/registry/journal/replay` | journal 재생으로 in-memory index 복구 |
+
+### 헤드리스 실행 (CI·재현 스크립트)
+
+브라우저 없이 실험 하나를 통째로 재현하려면 선언 파일을 실행합니다.
+
+```json
+{
+  "version": 1,
+  "dataset": { "name": "synthetic", "split": "test" },
+  "model": { "seed": 1729 },
+  "baseline": { "seed": 1729, "batch_size": 32, "max_samples": 128 },
+  "attacks": [
+    { "algorithm": "fgsm", "epsilon": 0.03137 },
+    { "algorithm": "pgd", "epsilon": 0.03137, "iterations": 5 }
+  ]
+}
+```
+
+```bash
+aishield-run experiment.json --output result.json
+```
+
+출력은 `schemas/experiment-result.schema.json` 계약을 만족하는 self-contained envelope이며
+`POST /api/v1/registry/experiments`로 그대로 가져올 수 있습니다. 알 수 없는 key는 무시하지
+않고 오류로 처리하므로, 오타 난 parameter가 조용히 기본값으로 실행되는 일이 없습니다.
 
 ## 🧱 아키텍처
 
@@ -437,6 +480,43 @@ AISHIELD_API_PORT=18000
 AISHIELD_DASHBOARD_PORT=13000
 ```
 
+Metadata 저장 backend. 기본값은 서버가 필요 없는 파일 journal이고, 여러 프로세스가 하나의
+registry를 공유해야 할 때만 PostgreSQL로 바꿉니다.
+
+```dotenv
+AISHIELD_METADATA_BACKEND=journal      # 또는 postgresql
+AISHIELD_DATABASE_URL=postgresql://aishield:aishield@postgres:5432/aishield
+AISHIELD_DATABASE_POOL_SIZE=5
+```
+
+```bash
+# PostgreSQL backend로 전체 스택 실행
+AISHIELD_METADATA_BACKEND=postgresql docker compose up --build
+```
+
+PostgreSQL을 쓰려면 `postgres` extra가 필요합니다(`pip install -e ".[dev,ml,postgres]"`).
+Docker image에는 이미 포함되어 있습니다.
+
+실행 자원과 복구 동작:
+
+```dotenv
+# 동시에 실행할 수 있는 heavy evaluation 수. 초과 요청은 429 + Retry-After.
+AISHIELD_MAX_CONCURRENT_RUNS=1
+# Background worker와 queue 한계
+AISHIELD_JOB_MAX_WORKERS=2
+AISHIELD_JOB_MAX_PENDING=16
+AISHIELD_JOB_RETAINED_RECORDS=256
+AISHIELD_JOB_SLOT_TIMEOUT_SECONDS=900
+# 프로세스 시작 시 journal을 재생해 in-memory index를 복구
+AISHIELD_REPLAY_JOURNAL_ON_START=true
+# 구조화 JSON 로그 수준
+AISHIELD_LOG_LEVEL=INFO
+```
+
+기본값 `AISHIELD_MAX_CONCURRENT_RUNS=1`은 한 대의 장비가 여러 개의 전체 torch 평가를
+동시에 실행하면서 정직한 latency 근거를 남길 수 없다는 판단에 따른 것입니다. 동기 API
+요청은 slot이 없으면 즉시 429를 받고, background job은 slot이 날 때까지 대기합니다.
+
 선택적 NVIDIA runtime 접근 확인:
 
 ```bash
@@ -460,10 +540,11 @@ source .venv/bin/activate
 
 python -m pip install torch==2.13.0 torchvision==0.28.0 \
   --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -e ".[dev,ml]"
+python -m pip install -e ".[dev,ml,postgres]"
 
 npm --prefix web ci
 make check
+npm --prefix web run test
 npm --prefix web run build
 docker compose config --quiet
 ```
@@ -472,9 +553,11 @@ docker compose config --quiet
 
 - Ruff lint + format
 - mypy `strict = true`
-- pytest 50개와 line coverage 90% gate
+- pytest 156개와 line coverage 90% gate (PostgreSQL 테스트는 `AISHIELD_TEST_DATABASE_URL`이
+  설정된 경우에만 실행되고, 없으면 skip합니다)
 - 생성된 JSON Schema drift check
-- React/TypeScript no-emit check + Vite production build
+- React/TypeScript no-emit check + Vitest 43개 + Vite production build
+- 대시보드가 호출하는 모든 경로가 실제 OpenAPI에 존재하는지 검사하는 contract test
 - Compose CPU demo health smoke
 
 Vite 개발 서버:
