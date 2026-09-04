@@ -17,6 +17,7 @@ import { useRegistry } from "./hooks/useRegistry";
 import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { AttacksPage } from "./pages/AttacksPage";
 import { DefensesPage } from "./pages/DefensesPage";
+import { ComparePage } from "./pages/ComparePage";
 import { RemoteAttacksPage } from "./pages/RemoteAttacksPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JournalPage } from "./pages/JournalPage";
@@ -47,6 +48,7 @@ type Page =
   | "jobs"
   | "registry"
   | "artifacts"
+  | "compare"
   | "journal";
 
 type DialogName =
@@ -108,6 +110,11 @@ const pageCopy: Record<Page, { eyebrow: string; title: string; description: stri
     eyebrow: "Evidence vault",
     title: "Generated artifacts",
     description: "Download machine-readable reports and publication-ready matrices.",
+  },
+  compare: {
+    eyebrow: "Run-to-run",
+    title: "Compare runs",
+    description: "Put two runs side by side, with every disqualifying difference called out.",
   },
   journal: {
     eyebrow: "Durable audit trail",
@@ -435,6 +442,7 @@ function App() {
     { id: "jobs", label: "Jobs & training", icon: "clock", count: jobs.length },
     { id: "registry", label: "Registry", icon: "database", count: datasets.length + models.length },
     { id: "artifacts", label: "Artifacts", icon: "archive", count: artifactCount },
+    { id: "compare", label: "Compare", icon: "activity" },
     { id: "journal", label: "Journal", icon: "book", count: journal.length },
   ];
 
@@ -669,6 +677,15 @@ function App() {
             artifactCount={artifactCount}
             baselines={baselines}
             onDownload={downloadArtifact}
+          />
+        )}
+
+        {page === "compare" && (
+          <ComparePage
+            attacks={attacks}
+            baselines={baselines}
+            datasets={datasets}
+            models={models}
           />
         )}
 

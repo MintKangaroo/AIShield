@@ -2571,6 +2571,82 @@ main {
   background: rgb(245 184 75 / 8%);
 }
 
+.comparison {
+  display: grid;
+  gap: 12px;
+  padding: 4px 18px 18px;
+}
+
+.comparison-verdict {
+  margin: 0;
+}
+
+.comparison-section {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.comparison-head,
+.comparison-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(90px, 0.9fr);
+  gap: 12px;
+  align-items: center;
+  padding: 9px 14px;
+}
+
+.comparison-head {
+  border-bottom: 1px solid var(--line);
+  color: #555e70;
+  font: 500 7px "IBM Plex Mono", monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.comparison-row {
+  border-bottom: 1px solid #1d2230;
+  font-size: 9px;
+}
+
+.comparison-row:last-child {
+  border-bottom: 0;
+}
+
+.comparison-row.differs {
+  background: rgb(255 255 255 / 2%);
+}
+
+.comparison-row.provenance .comparison-delta {
+  color: #5f687b;
+}
+
+.comparison-label {
+  color: #9aa3b5;
+}
+
+.comparison-delta.up {
+  color: var(--lime);
+}
+
+.comparison-delta.down {
+  color: var(--red);
+}
+
+.comparison-delta.flat {
+  color: #5f687b;
+}
+
+.attack-warning.blocker {
+  border-color: rgb(243 111 117 / 28%);
+  color: #f3a0a4;
+  background: rgb(243 111 117 / 8%);
+}
+
+.compare-pickers {
+  padding: 4px 18px 8px;
+}
+
 .replay-facts {
   padding: 4px 18px 14px;
 }
