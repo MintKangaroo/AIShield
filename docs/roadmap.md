@@ -63,7 +63,10 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
     - ✅ robustness score 집계 UI
     - ✅ append-only journal 감사 view
     - ✅ portable experiment export/import
-    - run-to-run comparison, sample triplets
+    - ✅ run-to-run comparison that blocks uncontrolled comparisons and flags
+      misleading deltas
+    - ✅ remote black-box attack dashboard surface
+    - sample triplets
 
 12. **Access control** *(in progress)*
     - ✅ optional API key over the whole registry surface, off by default
