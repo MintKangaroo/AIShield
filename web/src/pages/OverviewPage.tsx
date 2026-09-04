@@ -49,24 +49,23 @@ export function OverviewPage({
       <section className="hero">
         <div className="hero-copy">
           <span className="hero-badge">
-            <Icon name="shield" size={14} /> Reproducible by design
+            <Icon name="shield" size={14} /> 설계상 재현 가능
           </span>
           <h2>
-            Evidence before
+            증거가 먼저,
             <br />
-            <em>confidence.</em>
+            <em>확신은 그다음.</em>
           </h2>
           <p>
-            Establish a trusted clean baseline before you claim robustness. AIShield binds every
-            result to the exact model, data, seed, runtime and generated artifacts.
+            강건성을 주장하기 전에 신뢰할 수 있는 clean 베이스라인을 세우세요. AIShield는 모든 결과를 정확한 모델·데이터·시드·런타임·생성 아티팩트에 묶습니다.
           </p>
           <div className="hero-actions">
             <button className="button primary" type="button" onClick={onOpenBaseline}>
-              <Icon name="play" size={16} /> Run baseline
+              <Icon name="play" size={16} /> 베이스라인 실행
             </button>
             {models.length > 0 && datasets.length > 0 && (
               <button className="button secondary" type="button" onClick={onOpenAttack}>
-                <Icon name="spark" size={16} /> Run bounded attack
+                <Icon name="spark" size={16} /> 경계 공격 실행
               </button>
             )}
             {!baselines.length && (
@@ -77,7 +76,7 @@ export function OverviewPage({
                 onClick={onStartDemo}
               >
                 <Icon name="spark" size={16} />
-                {busy ? "Preparing demo…" : "Launch zero-download demo"}
+                {busy ? "데모 준비 중…" : "제로 다운로드 데모 실행"}
               </button>
             )}
           </div>
@@ -94,18 +93,18 @@ export function OverviewPage({
         </div>
       </section>
 
-      <section className="stat-grid" aria-label="Workspace metrics">
+      <section className="stat-grid" aria-label="워크스페이스 지표">
         <article>
           <span className="stat-icon lime">
             <Icon name="activity" />
           </span>
           <div>
-            <small>Latest clean accuracy</small>
+            <small>최신 clean 정확도</small>
             <strong>
               {selectedRun ? formatPercent(selectedRun.metrics.clean_accuracy) : "—"}
             </strong>
             <span>
-              {selectedRun ? `${selectedRun.metrics.evaluated_samples} samples` : "No run yet"}
+              {selectedRun ? `${selectedRun.metrics.evaluated_samples} samples` : "아직 실행 없음"}
             </span>
           </div>
         </article>
@@ -114,10 +113,10 @@ export function OverviewPage({
             <Icon name="fingerprint" />
           </span>
           <div>
-            <small>Reproducibility</small>
+            <small>재현성</small>
             <strong>{verification ? (verification.reproducible ? "PASS" : "FAIL") : "READY"}</strong>
             <span>
-              {verification ? `${verification.checks.length} checks` : "Exact rerun available"}
+              {verification ? `${verification.checks.length} checks` : "동일 재실행 가능"}
             </span>
           </div>
         </article>
@@ -126,14 +125,14 @@ export function OverviewPage({
             <Icon name="shield" />
           </span>
           <div>
-            <small>Latest robust accuracy</small>
+            <small>최신 robust 정확도</small>
             <strong>
               {selectedAttack ? formatPercent(selectedAttack.metrics.robust_accuracy) : "—"}
             </strong>
             <span>
               {selectedAttack
                 ? `${selectedAttack.config.algorithm.toUpperCase()} · ε ${Math.round(selectedAttack.config.epsilon * 255)}/255`
-                : "No attack evaluated"}
+                : "평가된 공격 없음"}
             </span>
           </div>
         </article>
@@ -142,9 +141,9 @@ export function OverviewPage({
             <Icon name="archive" />
           </span>
           <div>
-            <small>Evidence artifacts</small>
+            <small>증거 아티팩트</small>
             <strong>{artifactCount}</strong>
-            <span>Hash-verified outputs</span>
+            <span>해시 검증 출력</span>
           </div>
         </article>
       </section>
@@ -153,8 +152,8 @@ export function OverviewPage({
         <section className="panel performance-panel">
           <div className="panel-heading">
             <div>
-              <span className="kicker">Model behavior</span>
-              <h3>Class-level recall</h3>
+              <span className="kicker">모델 동작</span>
+              <h3>클래스별 recall</h3>
             </div>
             <span className="panel-chip">
               {selectedDataset?.name.toUpperCase() ?? "NO DATA"} · CLEAN
@@ -183,10 +182,10 @@ export function OverviewPage({
           </div>
           <div className="chart-footer">
             <span>
-              <i className="legend-dot clean" /> Recall by true class
+              <i className="legend-dot clean" /> 실제 클래스별 recall
             </span>
             <span>
-              Mean loss <b>{selectedRun?.metrics.mean_loss.toFixed(4) ?? "—"}</b>
+              평균 손실 <b>{selectedRun?.metrics.mean_loss.toFixed(4) ?? "—"}</b>
             </span>
           </div>
         </section>
@@ -194,8 +193,8 @@ export function OverviewPage({
         <section className="panel matrix-panel">
           <div className="panel-heading">
             <div>
-              <span className="kicker">Prediction map</span>
-              <h3>Confusion matrix</h3>
+              <span className="kicker">예측 맵</span>
+              <h3>혼동 행렬</h3>
             </div>
             {selectedRun && (
               <span className="mono faint">{shortHash(selectedRun.metrics.prediction_sha256)}</span>
@@ -208,11 +207,11 @@ export function OverviewPage({
       <section className="panel recent-panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Immutable ledger</span>
-            <h3>Recent baseline runs</h3>
+            <span className="kicker">불변 원장</span>
+            <h3>최근 베이스라인 실행</h3>
           </div>
           <button className="text-button" type="button" onClick={onViewAllRuns}>
-            View all runs <Icon name="arrow" size={15} />
+            모든 실행 보기 <Icon name="arrow" size={15} />
           </button>
         </div>
         <RunsTable

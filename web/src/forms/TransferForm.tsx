@@ -66,7 +66,7 @@ export function TransferForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        <span>Dataset split</span>
+        <span>데이터셋 split</span>
         <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
           {datasets.map((dataset) => (
             <option key={dataset.id} value={dataset.id}>
@@ -77,7 +77,7 @@ export function TransferForm({
       </label>
       <div className="form-row two">
         <label>
-          <span>Surrogate model</span>
+          <span>대리 모델</span>
           <select value={surrogateId} onChange={(event) => setSurrogateId(event.target.value)}>
             {compatibleModels.map((model) => (
               <option key={model.id} value={model.id}>
@@ -85,10 +85,10 @@ export function TransferForm({
               </option>
             ))}
           </select>
-          <small className="field-hint">Perturbations are generated here.</small>
+          <small className="field-hint">여기서 섭동이 생성됩니다.</small>
         </label>
         <label>
-          <span>Target model</span>
+          <span>대상 모델</span>
           <select value={resolvedTarget} onChange={(event) => setTargetId(event.target.value)}>
             {targetChoices.map((model) => (
               <option key={model.id} value={model.id}>
@@ -98,14 +98,14 @@ export function TransferForm({
           </select>
           {!targetChoices.length && (
             <small className="field-warning">
-              Load a second compatible model to measure transfer.
+              전이를 측정하려면 두 번째 호환 모델을 적재하세요.
             </small>
           )}
         </label>
       </div>
       <div className="form-row">
         <label>
-          <span>Attack</span>
+          <span>공격</span>
           <select
             value={algorithm}
             onChange={(event) => setAlgorithm(event.target.value as AttackAlgorithm)}
@@ -118,7 +118,7 @@ export function TransferForm({
           </select>
         </label>
         <label>
-          <span>Epsilon / 255</span>
+          <span>엡실론 / 255</span>
           <input
             max={255}
             min={0.01}
@@ -129,7 +129,7 @@ export function TransferForm({
           />
         </label>
         <label>
-          <span>Iterations</span>
+          <span>반복 횟수</span>
           <input
             disabled={!attackProfiles[algorithm].iterative}
             max={100}
@@ -142,7 +142,7 @@ export function TransferForm({
       </div>
       <div className="form-row two">
         <label>
-          <span>Batch size</span>
+          <span>배치 크기</span>
           <input
             max={4096}
             min={1}
@@ -152,10 +152,10 @@ export function TransferForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -165,17 +165,16 @@ export function TransferForm({
       <div className="policy-note attack-note">
         <Icon name="transfer" />
         <p>
-          The target model never exposes a gradient. This is black-box evidence: it bounds what an
-          attacker achieves without white-box access, and it does not replace a direct attack.
+          대상 모델은 그래디언트를 노출하지 않습니다. 이것은 블랙박스 증거입니다: white-box 접근 없이 공격자가 달성할 수 있는 범위를 한정하며, 직접 공격을 대체하지 않습니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!canSubmit || busy} type="submit">
           <Icon name="transfer" size={16} />
-          {busy ? "Transferring perturbations…" : "Run transfer evaluation"}
+          {busy ? "섭동 전이 중…" : "전이 평가 실행"}
         </button>
       </div>
     </form>

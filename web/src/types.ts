@@ -448,3 +448,50 @@ export interface RemoteAttackRequest {
   auth_header?: string | null;
   auth_value?: string | null;
 }
+
+export type ProbeCategory = "system_prompt_leak" | "instruction_override" | "jailbreak";
+
+export interface ProbeResult {
+  probe_id: string;
+  category: ProbeCategory;
+  succeeded: boolean;
+  detail: string;
+  prompt_sha256: string;
+  response_sha256: string;
+  prompt_text: string | null;
+  response_text: string | null;
+}
+
+export interface LlmRedTeamRunRecord {
+  id: string;
+  created_at: string;
+  target_host: string;
+  target_fingerprint: string;
+  config: {
+    categories: ProbeCategory[];
+    max_probes: number;
+    seed: number;
+    retain_text: boolean;
+  };
+  metrics: {
+    total_probes: number;
+    successful_probes: number;
+    injection_success_rate: number;
+    by_category: Record<string, number>;
+  };
+  probes: ProbeResult[];
+  authorized: true;
+  warnings: string[];
+}
+
+export interface LlmRedTeamRequest {
+  endpoint_url: string;
+  authorized: boolean;
+  categories: ProbeCategory[];
+  max_probes: number;
+  seed: number;
+  retain_text: boolean;
+  timeout_seconds?: number;
+  auth_header?: string | null;
+  auth_value?: string | null;
+}

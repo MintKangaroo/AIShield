@@ -60,7 +60,7 @@ export function TrainingForm({
 
   return (
     <form className="form-grid" onSubmit={submit}>
-      <div className="attack-picker" role="group" aria-label="Training strategy">
+      <div className="attack-picker" role="group" aria-label="학습 전략">
         {(["adversarial_training", "trades"] as const).map((item) => (
           <button
             className={strategy === item ? "active" : ""}
@@ -68,18 +68,18 @@ export function TrainingForm({
             type="button"
             onClick={() => setStrategy(item)}
           >
-            <span>{item === "trades" ? "TRADES" : "Adversarial"}</span>
+            <span>{item === "trades" ? "TRADES" : "적대적 학습"}</span>
             <small>
               {item === "trades"
-                ? "Robustness/accuracy trade-off objective"
-                : "Train directly on bounded adversarial inputs"}
+                ? "강건성/정확도 트레이드오프 목적함수"
+                : "경계 적대 입력으로 직접 학습"}
             </small>
           </button>
         ))}
       </div>
       <div className="form-row two">
         <label>
-          <span>Dataset split</span>
+          <span>데이터셋 split</span>
           <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
@@ -89,7 +89,7 @@ export function TrainingForm({
           </select>
         </label>
         <label>
-          <span>Source model</span>
+          <span>원본 모델</span>
           <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
             {compatibleModels.map((model) => (
               <option key={model.id} value={model.id}>
@@ -99,14 +99,14 @@ export function TrainingForm({
           </select>
           {!compatibleModels.length && (
             <small className="field-warning">
-              No compatible model is loaded for this dataset.
+              이 데이터셋에 호환되는 모델이 적재되지 않았습니다.
             </small>
           )}
         </label>
       </div>
       <div className="form-row">
         <label>
-          <span>Epochs</span>
+          <span>에폭</span>
           <input
             max={100}
             min={1}
@@ -116,7 +116,7 @@ export function TrainingForm({
           />
         </label>
         <label>
-          <span>Epsilon / 255</span>
+          <span>엡실론 / 255</span>
           <input
             max={255}
             min={0.01}
@@ -127,7 +127,7 @@ export function TrainingForm({
           />
         </label>
         <label>
-          <span>Attack iterations</span>
+          <span>공격 반복</span>
           <input
             max={20}
             min={1}
@@ -139,7 +139,7 @@ export function TrainingForm({
       </div>
       <div className="form-row">
         <label>
-          <span>Learning rate</span>
+          <span>학습률</span>
           <input
             max={1}
             min={0.00001}
@@ -162,10 +162,10 @@ export function TrainingForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -174,7 +174,7 @@ export function TrainingForm({
       </div>
       <div className="form-row two">
         <label>
-          <span>Batch size</span>
+          <span>배치 크기</span>
           <input
             max={4096}
             min={1}
@@ -190,25 +190,24 @@ export function TrainingForm({
             onChange={(event) => setQueued(event.target.checked)}
           />
           <span>
-            Run as a background job
-            <small>Track progress on the Jobs page instead of holding the request open.</small>
+            백그라운드 작업으로 실행
+            <small>요청을 열어두지 않고 작업 페이지에서 진행 상황을 추적합니다.</small>
           </span>
         </label>
       </div>
       <div className="policy-note">
         <Icon name="fingerprint" />
         <p>
-          Training copies the source model rather than mutating it. The trained checkpoint is stored
-          as a weights-only, content-addressed state dictionary with hashed evidence.
+          학습은 원본 모델을 변형하지 않고 복제합니다. 학습된 체크포인트는 가중치 전용·콘텐츠 주소 state dict으로 해시된 증거와 함께 저장됩니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!datasetId || !modelId || busy} type="submit">
           <Icon name="layers" size={16} />
-          {busy ? "Submitting…" : queued ? "Queue training job" : "Train now"}
+          {busy ? "제출 중…" : queued ? "학습 작업 큐잉" : "지금 학습"}
         </button>
       </div>
     </form>

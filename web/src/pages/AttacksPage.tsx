@@ -48,11 +48,11 @@ export function AttacksPage({
       <section className="panel runs-panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Paired evaluation</span>
+            <span className="kicker">짝지은 평가</span>
             <h3>{attacks.length} bounded attack runs</h3>
           </div>
           <button className="button secondary compact" type="button" onClick={onOpenAttack}>
-            <Icon name="spark" size={15} /> Run attack
+            <Icon name="spark" size={15} /> 공격 실행
           </button>
           <button
             className="button ghost compact"
@@ -60,7 +60,7 @@ export function AttacksPage({
             type="button"
             onClick={onRunCurve}
           >
-            <Icon name="activity" size={15} /> Strength curve
+            <Icon name="activity" size={15} /> 강도 곡선
           </button>
         </div>
         <AttackTable
@@ -91,7 +91,7 @@ export function AttacksPage({
               {selectedAttack.config.algorithm.toUpperCase()} ·{" "}
               {selectedAttack.config.norm === "l2" ? "L2" : "L∞"}
             </span>
-            <h2>{attackModel?.architecture ?? "Adversarial evaluation"}</h2>
+            <h2>{attackModel?.architecture ?? "적대적 평가"}</h2>
             <p>
               {attackDataset?.name.toUpperCase()} / {attackDataset?.split} ·{" "}
               {selectedAttack.metrics.evaluated_samples} samples
@@ -100,7 +100,7 @@ export function AttacksPage({
             <div className="accuracy-compare">
               <div>
                 <span>
-                  <small>Clean accuracy</small>
+                  <small>clean 정확도</small>
                   <b>{formatPercent(selectedAttack.metrics.clean_accuracy)}</b>
                 </span>
                 <i>
@@ -109,7 +109,7 @@ export function AttacksPage({
               </div>
               <div className="robust">
                 <span>
-                  <small>Robust accuracy</small>
+                  <small>robust 정확도</small>
                   <b>{formatPercent(selectedAttack.metrics.robust_accuracy)}</b>
                 </span>
                 <i>
@@ -121,7 +121,7 @@ export function AttacksPage({
             <div className="attack-success">
               <span>
                 <Icon name="activity" />
-                <small>Attack success rate</small>
+                <small>공격 성공률</small>
               </span>
               <strong>{formatPercent(selectedAttack.metrics.attack_success_rate)}</strong>
               <p>
@@ -133,7 +133,7 @@ export function AttacksPage({
 
             <div className="metric-pairs attack-config">
               <span>
-                <small>Epsilon</small>
+                <small>엡실론</small>
                 <b>{(selectedAttack.config.epsilon * 255).toFixed(1)} / 255</b>
               </span>
               <span>
@@ -145,11 +145,11 @@ export function AttacksPage({
                 </b>
               </span>
               <span>
-                <small>Iterations</small>
+                <small>반복 횟수</small>
                 <b>{selectedAttack.config.iterations}</b>
               </span>
               <span>
-                <small>Random start</small>
+                <small>랜덤 시작</small>
                 <b>{selectedAttack.config.random_start ? "Yes" : "No"}</b>
               </span>
             </div>
@@ -158,26 +158,26 @@ export function AttacksPage({
               <div className="attack-warning" key={warning}>
                 <Icon name="activity" size={16} />
                 <span>
-                  <strong>Gradient warning</strong>
+                  <strong>그래디언트 경고</strong>
                   {warning}
                 </span>
               </div>
             ))}
 
             <button className="button primary full" disabled={busy} type="button" onClick={onOpenAttack}>
-              <Icon name="spark" size={16} /> Run another attack
+              <Icon name="spark" size={16} /> 다른 공격 실행
             </button>
             <small className="inspector-footnote">
-              Robust accuracy uses the same sample population as clean accuracy.
+              robust 정확도는 clean 정확도와 동일한 샘플 집단을 사용합니다.
             </small>
           </>
         ) : (
           <div className="empty-panel compact-empty">
             <Icon name="spark" size={24} />
-            <h3>Challenge the baseline</h3>
-            <p>FGSM and PGD results will appear here.</p>
+            <h3>베이스라인에 도전</h3>
+            <p>FGSM·PGD 결과가 여기에 표시됩니다.</p>
             <button className="button primary compact" type="button" onClick={onOpenAttack}>
-              Run first attack
+              첫 공격 실행
             </button>
           </div>
         )}

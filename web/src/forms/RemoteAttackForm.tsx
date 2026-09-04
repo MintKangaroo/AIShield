@@ -51,7 +51,7 @@ export function RemoteAttackForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        <span>Target endpoint URL</span>
+        <span>대상 엔드포인트 URL</span>
         <input
           autoComplete="off"
           placeholder="http://model.internal.example.com/score"
@@ -60,12 +60,12 @@ export function RemoteAttackForm({
           onChange={(event) => setEndpointUrl(event.target.value)}
         />
         <small className="field-hint">
-          Must be an allowlisted host that returns <code>{"{\"scores\": [[...]]}"}</code> for a
-          batch of images. The dataset&apos;s class count is sent as the expected output size.
+          이미지 배치에 대해 <code>{"{\"scores\": [[...]]}"}</code>를 반환하는 allowlist 호스트여야 합니다.
+          데이터셋의 클래스 수가 기대 출력 크기로 전송됩니다.
         </small>
       </label>
       <label>
-        <span>Probe dataset</span>
+        <span>점검 데이터셋</span>
         <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
           {datasets.map((item) => (
             <option key={item.id} value={item.id}>
@@ -76,7 +76,7 @@ export function RemoteAttackForm({
       </label>
       <div className="form-row">
         <label>
-          <span>Epsilon / 255</span>
+          <span>엡실론 / 255</span>
           <input
             max={255}
             min={0.01}
@@ -87,7 +87,7 @@ export function RemoteAttackForm({
           />
         </label>
         <label>
-          <span>Query budget</span>
+          <span>질의 예산</span>
           <input
             max={100000}
             min={1}
@@ -97,10 +97,10 @@ export function RemoteAttackForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -109,7 +109,7 @@ export function RemoteAttackForm({
       </div>
       <div className="form-row two">
         <label>
-          <span>Auth header (optional)</span>
+          <span>인증 헤더 (선택)</span>
           <input
             autoComplete="off"
             placeholder="Authorization"
@@ -118,7 +118,7 @@ export function RemoteAttackForm({
           />
         </label>
         <label>
-          <span>Auth value (optional)</span>
+          <span>인증 값 (선택)</span>
           <input
             autoComplete="off"
             placeholder="Bearer …"
@@ -135,28 +135,25 @@ export function RemoteAttackForm({
           onChange={(event) => setAuthorized(event.target.checked)}
         />
         <span>
-          I am authorized to run adversarial tests against this target.
+          이 대상에 대해 적대적 테스트를 수행할 권한이 있습니다.
           <small>
-            The server also refuses any host that is not in its configured allowlist. Both must
-            hold, or the request is rejected with 403.
+            서버는 설정된 allowlist에 없는 호스트도 거부합니다. 둘 다 충족해야 하며, 아니면 403으로 거부됩니다.
           </small>
         </span>
       </label>
       <div className="policy-note attack-note">
         <Icon name="shield" />
         <p>
-          This is a query-only black-box attack: it sends images and reads scores, never weights or
-          gradients. Every query is counted and reported, and the credential above is sent only to
-          the target — it is never stored in the recorded evidence.
+          이것은 질의 전용 블랙박스 공격입니다: 이미지를 보내고 score를 읽을 뿐, 가중치나 그래디언트는 보지 않습니다. 모든 질의가 계수·보고되며, 위 자격 증명은 대상에게만 전송되고 기록된 증거에는 저장되지 않습니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!canSubmit || busy} type="submit">
           <Icon name="spark" size={16} />
-          {busy ? "Querying target…" : "Run black-box attack"}
+          {busy ? "대상 질의 중…" : "블랙박스 공격 실행"}
         </button>
       </div>
     </form>

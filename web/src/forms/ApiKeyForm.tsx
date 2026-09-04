@@ -28,38 +28,37 @@ export function ApiKeyForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        <span>API key</span>
+        <span>API 키</span>
         <input
           autoComplete="off"
           autoFocus
-          placeholder={stored ? "A key is stored; enter a new one to replace it" : "Paste the key"}
+          placeholder={stored ? "키가 저장되어 있습니다. 교체하려면 새 키를 입력하세요" : "Paste the key"}
           type="password"
           value={key}
           onChange={(event) => setKey(event.target.value)}
         />
         <small className="field-hint">
-          Sent as an <code>X-API-Key</code> header. A Bearer token is also accepted.
+          <code>X-API-Key</code> 헤더로 전송합니다. Bearer 토큰도 허용됩니다.
         </small>
       </label>
       <div className="policy-note">
         <Icon name="shield" />
         <p>
-          The key is kept in this browser tab only and is cleared when the tab closes. It is
-          never written to a URL, so it cannot leak into proxy or server logs.
+          키는 이 브라우저 탭에만 보관되고 탭을 닫으면 지워집니다. URL에 기록되지 않으므로 프록시·서버 로그로 유출될 수 없습니다.
         </p>
       </div>
       <div className="dialog-actions">
         {stored && (
           <button className="button ghost" type="button" onClick={onClear}>
-            Forget stored key
+            저장된 키 삭제
           </button>
         )}
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!key.trim() || busy} type="submit">
           <Icon name="check" size={16} />
-          {busy ? "Checking…" : "Use this key"}
+          {busy ? "확인 중…" : "이 키 사용"}
         </button>
       </div>
     </form>

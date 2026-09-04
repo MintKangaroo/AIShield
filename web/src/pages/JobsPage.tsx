@@ -21,17 +21,17 @@ export function JobsPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Bounded worker queue</span>
+            <span className="kicker">경계 워커 큐</span>
             <h3>{jobs.length} background jobs</h3>
           </div>
           {hasPendingJob && (
             <span className="live-chip">
               <i />
-              Live
+              실시간
             </span>
           )}
           <button className="button secondary compact" type="button" onClick={onOpenTraining}>
-            <Icon name="plus" size={15} /> Queue training
+            <Icon name="plus" size={15} /> 학습 큐잉
           </button>
         </div>
         <JobsTable jobs={jobs} />
@@ -40,19 +40,19 @@ export function JobsPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Hardened checkpoints</span>
+            <span className="kicker">강화 체크포인트</span>
             <h3>{training.length} training runs</h3>
           </div>
         </div>
         {training.length ? (
           <div className="training-table">
             <div className="training-head">
-              <span>Run</span>
-              <span>Strategy</span>
-              <span>Clean acc.</span>
-              <span>Robust acc.</span>
-              <span>Final loss</span>
-              <span>Checkpoint</span>
+              <span>실행</span>
+              <span>전략</span>
+              <span>clean 정확도</span>
+              <span>robust 정확도</span>
+              <span>최종 손실</span>
+              <span>체크포인트</span>
             </div>
             {training.map((run, index) => {
               const trained = models.find((item) => item.id === run.trained_model_version_id);
@@ -63,7 +63,7 @@ export function JobsPage({
                     <small>{formatDate(run.created_at)}</small>
                   </span>
                   <span className="target-cell">
-                    <b>{run.config.strategy === "trades" ? "TRADES" : "Adversarial"}</b>
+                    <b>{run.config.strategy === "trades" ? "TRADES" : "적대적 학습"}</b>
                     <small>
                       {run.metrics.epochs_completed} epochs · ε{" "}
                       {Math.round(run.config.epsilon * 255)}/255
@@ -75,7 +75,7 @@ export function JobsPage({
                   </strong>
                   <span className="mono">{run.metrics.final_training_loss.toFixed(4)}</span>
                   <span className="target-cell">
-                    <b>{trained?.name ?? "Trained model"}</b>
+                    <b>{trained?.name ?? "학습된 모델"}</b>
                     <small className="mono">{run.model_state_sha256.slice(0, 12)}</small>
                   </span>
                 </div>
@@ -87,10 +87,9 @@ export function JobsPage({
             <span className="empty-icon">
               <Icon name="layers" size={22} />
             </span>
-            <h3>No hardened checkpoints yet</h3>
+            <h3>아직 강화 체크포인트가 없습니다</h3>
             <p>
-              Adversarial training and TRADES copy the source model and store the result as hashed
-              evidence.
+              적대적 학습과 TRADES는 원본 모델을 복제하고 결과를 해시된 증거로 저장합니다.
             </p>
           </div>
         )}

@@ -10,6 +10,7 @@ import { BaselineForm } from "./forms/BaselineForm";
 import { DatasetForm } from "./forms/DatasetForm";
 import { DefenseForm } from "./forms/DefenseForm";
 import { ModelForm } from "./forms/ModelForm";
+import { LlmRedTeamForm } from "./forms/LlmRedTeamForm";
 import { RemoteAttackForm } from "./forms/RemoteAttackForm";
 import { TrainingForm } from "./forms/TrainingForm";
 import { TransferForm } from "./forms/TransferForm";
@@ -18,6 +19,7 @@ import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { AttacksPage } from "./pages/AttacksPage";
 import { DefensesPage } from "./pages/DefensesPage";
 import { ComparePage } from "./pages/ComparePage";
+import { LlmRedTeamPage } from "./pages/LlmRedTeamPage";
 import { RemoteAttacksPage } from "./pages/RemoteAttacksPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JournalPage } from "./pages/JournalPage";
@@ -33,6 +35,7 @@ import type {
   DatasetRecord,
   DefenseRequest,
   JournalReplaySummary,
+  LlmRedTeamRequest,
   RemoteAttackRequest,
   RobustnessScore,
   TrainingRequest,
@@ -45,6 +48,7 @@ type Page =
   | "attacks"
   | "defenses"
   | "remote"
+  | "llm"
   | "jobs"
   | "registry"
   | "artifacts"
@@ -60,6 +64,7 @@ type DialogName =
   | "transfer"
   | "training"
   | "remote-attack"
+  | "llm-red-team"
   | "api-key"
   | null;
 
@@ -70,56 +75,62 @@ interface Toast {
 
 const pageCopy: Record<Page, { eyebrow: string; title: string; description: string }> = {
   overview: {
-    eyebrow: "Mission control",
-    title: "Research overview",
-    description: "A live view of model evidence, reproducibility, and evaluation health.",
+    eyebrow: "미션 컨트롤",
+    title: "연구 개요",
+    description: "모델 증거·재현성·평가 상태를 실시간으로 봅니다.",
   },
   runs: {
-    eyebrow: "Experiment ledger",
-    title: "Baseline runs",
-    description: "Inspect immutable metrics and verify an exact-configuration rerun.",
+    eyebrow: "실험 원장",
+    title: "베이스라인 실행",
+    description: "불변 지표를 확인하고 동일 구성 재실행을 검증합니다.",
   },
   attacks: {
-    eyebrow: "Adversarial laboratory",
-    title: "Attack evaluations",
-    description: "Compare paired clean and robust accuracy under bounded first-order attacks.",
+    eyebrow: "적대적 실험실",
+    title: "공격 평가",
+    description: "경계가 있는 1차 공격에서 clean·robust 정확도를 짝지어 비교합니다.",
   },
   defenses: {
-    eyebrow: "Defense laboratory",
-    title: "Defenses & transfer",
+    eyebrow: "방어 실험실",
+    title: "방어 & 전이",
     description:
-      "Measure a preprocessing defense before, after, and under a defense-aware adaptive attack.",
+      "전처리 방어를 적용 전·후, 그리고 방어 인지 적응 공격 하에서 측정합니다.",
   },
   remote: {
-    eyebrow: "Black-box laboratory",
-    title: "Remote model attacks",
+    eyebrow: "블랙박스 실험실",
+    title: "원격 모델 공격",
     description:
-      "Query an authorized deployed classifier with images and read only its scores.",
+      "인가된 배포 분류기에 이미지를 질의하고 score만 읽습니다.",
+  },
+  llm: {
+    eyebrow: "LLM 실험실",
+    title: "LLM 레드팀",
+    description:
+      "인가된 LLM을 prompt-injection·명령 override·jailbreak 프레이밍으로 점검합니다.",
   },
   jobs: {
-    eyebrow: "Execution queue",
-    title: "Jobs & training",
-    description: "Track bounded background workers and the hardened checkpoints they produce.",
+    eyebrow: "실행 큐",
+    title: "작업 & 학습",
+    description: "경계가 있는 백그라운드 워커와 그 결과인 강화 체크포인트를 추적합니다.",
   },
   registry: {
-    eyebrow: "Trusted inventory",
-    title: "Model & dataset registry",
-    description: "Every runtime object is bound to versioned, content-addressed evidence.",
+    eyebrow: "신뢰 인벤토리",
+    title: "모델 & 데이터셋 레지스트리",
+    description: "모든 런타임 객체는 버전이 매겨진 콘텐츠 주소 증거에 묶입니다.",
   },
   artifacts: {
-    eyebrow: "Evidence vault",
-    title: "Generated artifacts",
-    description: "Download machine-readable reports and publication-ready matrices.",
+    eyebrow: "증거 보관소",
+    title: "생성된 아티팩트",
+    description: "기계 판독 리포트와 출판용 행렬을 내려받습니다.",
   },
   compare: {
-    eyebrow: "Run-to-run",
-    title: "Compare runs",
-    description: "Put two runs side by side, with every disqualifying difference called out.",
+    eyebrow: "실행 간 비교",
+    title: "실행 비교",
+    description: "두 실행을 나란히 놓고, 비교를 무효화하는 차이를 모두 짚어줍니다.",
   },
   journal: {
-    eyebrow: "Durable audit trail",
-    title: "Metadata journal",
-    description: "Read the append-only record that survives the in-memory registry index.",
+    eyebrow: "영속 감사 로그",
+    title: "메타데이터 저널",
+    description: "메모리 레지스트리 인덱스보다 오래 남는 append-only 기록을 봅니다.",
   },
 };
 
@@ -138,6 +149,7 @@ function App() {
     refresh,
     refreshing,
     remoteAttacks,
+    llmRedTeams,
     training,
     transfers,
   } = useRegistry();
@@ -207,7 +219,7 @@ function App() {
     } catch (error) {
       setToast({
         tone: "error",
-        message: error instanceof Error ? error.message : "The operation could not be completed.",
+        message: error instanceof Error ? error.message : "작업을 완료할 수 없습니다.",
       });
     } finally {
       setBusy(false);
@@ -220,7 +232,7 @@ function App() {
       await refresh(true);
       setSelectedId(run.id);
       setPage("runs");
-    }, "Baseline sealed with reproducible evidence.");
+    }, "베이스라인이 재현 가능한 증거와 함께 봉인되었습니다.");
   }
 
   async function createAttack(payload: AttackRequest) {
@@ -229,7 +241,7 @@ function App() {
       await refresh(true);
       setSelectedAttackId(attack.id);
       setPage("attacks");
-    }, `${payload.algorithm.toUpperCase()} evaluation completed within the configured bound.`);
+    }, `${payload.algorithm.toUpperCase()} 평가가 설정된 경계 안에서 완료되었습니다.`);
   }
 
   async function createDefense(payload: DefenseRequest) {
@@ -238,7 +250,7 @@ function App() {
       await refresh(true);
       setSelectedDefenseId(defense.id);
       setPage("defenses");
-    }, "Defense evaluated before, after, and adaptively.");
+    }, "방어를 적용 전·후, 그리고 적응 공격 하에서 평가했습니다.");
   }
 
   async function createTransfer(payload: TransferRequest) {
@@ -246,7 +258,7 @@ function App() {
       await api.runTransfer(payload);
       await refresh(true);
       setPage("defenses");
-    }, "Black-box transfer evidence recorded.");
+    }, "블랙박스 전이 증거를 기록했습니다.");
   }
 
   async function createRemoteAttack(payload: RemoteAttackRequest) {
@@ -254,12 +266,20 @@ function App() {
       await api.runRemoteAttack(payload);
       await refresh(true);
       setPage("remote");
-    }, "Black-box attack completed against the remote target.");
+    }, "원격 대상에 대한 블랙박스 공격을 완료했습니다.");
   }
 
   // The remote attack needs a dataset to probe with, but no local model.
   function openRemoteAttackDialog() {
     setDialog(datasets.length ? "remote-attack" : "dataset");
+  }
+
+  async function createLlmRedTeam(payload: LlmRedTeamRequest) {
+    await perform(async () => {
+      await api.runLlmRedTeam(payload);
+      await refresh(true);
+      setPage("llm");
+    }, "LLM 레드팀을 완료했습니다.");
   }
 
   async function createTraining(payload: TrainingRequest, queued: boolean) {
@@ -274,8 +294,8 @@ function App() {
         setPage("jobs");
       },
       queued
-        ? "Training queued on the bounded background worker."
-        : "Training completed and the hardened checkpoint was hashed.",
+        ? "경계가 있는 백그라운드 워커에 학습을 큐잉했습니다."
+        : "학습을 완료하고 강화 체크포인트를 해시했습니다.",
     );
   }
 
@@ -296,7 +316,7 @@ function App() {
       });
       setCurveRuns(runs);
       await refresh(true);
-    }, "Attack strength curve completed.");
+    }, "공격 강도 곡선을 완료했습니다.");
   }
 
   async function submitApiKey(key: string) {
@@ -308,7 +328,7 @@ function App() {
   async function exportExperiment(baselineId: string) {
     await perform(
       () => api.downloadExperiment(baselineId),
-      "Experiment envelope downloaded.",
+      "실험 envelope을 내려받았습니다.",
     );
   }
 
@@ -319,7 +339,7 @@ function App() {
   ) {
     await perform(
       () => api.downloadArtifact(baselineId, artifactId, filename),
-      "Artifact downloaded.",
+      "아티팩트를 내려받았습니다.",
     );
   }
 
@@ -328,14 +348,14 @@ function App() {
       const summary = await api.replayJournal();
       setReplaySummary(summary);
       await refresh(true);
-    }, "Journal replayed into the in-memory index.");
+    }, "저널을 메모리 인덱스로 재생했습니다.");
   }
 
   async function calculateScore() {
     const ids = [...scoreSelection];
     await perform(async () => {
       setScore(await api.calculateScore(ids));
-    }, `Robustness score aggregated from ${ids.length} attack runs.`);
+    }, `공격 실행 ${ids.length}건에서 강건성 점수를 집계했습니다.`);
   }
 
   function toggleScoreSelection(id: string) {
@@ -359,7 +379,7 @@ function App() {
       await api.loadDataset(payload);
       await refresh(true);
       setPage("registry");
-    }, `${payload.name.toUpperCase()} ${payload.split} split loaded.`);
+    }, `${payload.name.toUpperCase()} ${payload.split} split을 적재했습니다.`);
   }
 
   async function loadModel(payload: { dataset_id: string; seed: number }) {
@@ -367,7 +387,7 @@ function App() {
       await api.loadSmallCnn(payload);
       await refresh(true);
       setPage("registry");
-    }, "Content-addressed SmallCNN model created.");
+    }, "콘텐츠 주소 기반 SmallCNN 모델을 생성했습니다.");
   }
 
   async function startDemo() {
@@ -405,7 +425,7 @@ function App() {
       await refresh(true);
       setSelectedId(run.id);
       setSelectedAttackId(attack.id);
-    }, "Local demo completed. No network download was used.");
+    }, "로컬 데모를 완료했습니다. 네트워크 다운로드는 없었습니다.");
   }
 
   async function verify(run: BaselineRunRecord) {
@@ -414,7 +434,7 @@ function App() {
       setVerifications((current) => ({ ...current, [run.id]: result }));
       await refresh(true);
       setSelectedId(run.id);
-    }, "Exact-configuration rerun matched the reference evidence.");
+    }, "동일 구성 재실행이 기준 증거와 일치했습니다.");
   }
 
   /** Send the user to whichever prerequisite is still missing before the real dialog. */
@@ -429,31 +449,33 @@ function App() {
   }
 
   const navItems: Array<{ id: Page; label: string; icon: IconName; count?: number }> = [
-    { id: "overview", label: "Overview", icon: "grid" },
-    { id: "runs", label: "Baseline runs", icon: "activity", count: baselines.length },
-    { id: "attacks", label: "Attack lab", icon: "spark", count: attacks.length },
+    { id: "overview", label: "개요", icon: "grid" },
+    { id: "runs", label: "베이스라인 실행", icon: "activity", count: baselines.length },
+    { id: "attacks", label: "공격 랩", icon: "spark", count: attacks.length },
     {
       id: "defenses",
-      label: "Defense lab",
+      label: "방어 랩",
       icon: "shield",
       count: defenses.length + transfers.length,
     },
-    { id: "remote", label: "Remote attacks", icon: "transfer", count: remoteAttacks.length },
-    { id: "jobs", label: "Jobs & training", icon: "clock", count: jobs.length },
-    { id: "registry", label: "Registry", icon: "database", count: datasets.length + models.length },
-    { id: "artifacts", label: "Artifacts", icon: "archive", count: artifactCount },
-    { id: "compare", label: "Compare", icon: "activity" },
-    { id: "journal", label: "Journal", icon: "book", count: journal.length },
+    { id: "remote", label: "원격 공격", icon: "transfer", count: remoteAttacks.length },
+    { id: "llm", label: "LLM 레드팀", icon: "terminal", count: llmRedTeams.length },
+    { id: "jobs", label: "작업 & 학습", icon: "clock", count: jobs.length },
+    { id: "registry", label: "레지스트리", icon: "database", count: datasets.length + models.length },
+    { id: "artifacts", label: "아티팩트", icon: "archive", count: artifactCount },
+    { id: "compare", label: "비교", icon: "activity" },
+    { id: "journal", label: "저널", icon: "book", count: journal.length },
   ];
 
   const primaryAction: Record<string, { label: string; run: () => void }> = {
-    attacks: { label: "New attack", run: () => openWithPrerequisites("attack") },
-    defenses: { label: "New defense", run: () => openWithPrerequisites("defense") },
-    remote: { label: "New black-box attack", run: openRemoteAttackDialog },
-    jobs: { label: "Queue training", run: () => openWithPrerequisites("training") },
+    attacks: { label: "새 공격", run: () => openWithPrerequisites("attack") },
+    defenses: { label: "새 방어", run: () => openWithPrerequisites("defense") },
+    remote: { label: "새 블랙박스 공격", run: openRemoteAttackDialog },
+    llm: { label: "새 LLM 레드팀", run: () => setDialog("llm-red-team") },
+    jobs: { label: "학습 큐잉", run: () => openWithPrerequisites("training") },
   };
   const action = primaryAction[page] ?? {
-    label: "New baseline",
+    label: "새 베이스라인",
     run: () => openWithPrerequisites("baseline"),
   };
 
@@ -466,21 +488,21 @@ function App() {
           </span>
           <span className="brand-copy">
             <strong>AIShield</strong>
-            <small>Research console</small>
+            <small>연구 콘솔</small>
           </span>
         </button>
 
         <div className="workspace-switcher">
           <span className="workspace-avatar">AS</span>
           <span>
-            <small>Workspace</small>
+            <small>워크스페이스</small>
             <b>AI Security Lab</b>
           </span>
           <Icon name="chevron" size={14} />
         </div>
 
         <nav aria-label="Primary navigation">
-          <span className="nav-label">Workspace</span>
+          <span className="nav-label">워크스페이스</span>
           {navItems.map((item) => (
             <button
               className={`nav-item ${page === item.id ? "active" : ""}`}
@@ -501,13 +523,13 @@ function App() {
               <Icon name="fingerprint" />
             </span>
             <div>
-              <strong>Evidence-first</strong>
-              <p>Hashes, seeds, environment and raw metrics stay attached.</p>
+              <strong>증거 우선</strong>
+              <p>해시·시드·환경·원본 지표가 항상 함께 남습니다.</p>
             </div>
           </div>
           <a href="/api/docs" target="_blank" rel="noreferrer">
             <Icon name="terminal" size={15} />
-            API documentation
+            API 문서
             <Icon name="arrow" size={14} />
           </a>
         </div>
@@ -526,10 +548,10 @@ function App() {
               {apiState === "ready"
                 ? `API ${health?.version} · ${health?.compute_device.toUpperCase()}`
                 : apiState === "checking"
-                  ? "Connecting"
+                  ? "연결 중"
                   : apiState === "unauthorized"
-                    ? "API key required"
-                    : "API offline"}
+                    ? "API 키 필요"
+                    : "API 오프라인"}
             </span>
             <button
               aria-label="Refresh workspace"
@@ -550,11 +572,10 @@ function App() {
           <div className="offline-banner unauthorized">
             <Icon name="shield" />
             <span>
-              <strong>This deployment requires an API key.</strong> The server answered but
-              refused the request.
+              <strong>이 배포는 API 키가 필요합니다.</strong> 서버는 응답했지만 요청을 거부했습니다.
             </span>
             <button type="button" onClick={() => setDialog("api-key")}>
-              Enter key
+              키 입력
             </button>
           </div>
         )}
@@ -563,11 +584,10 @@ function App() {
           <div className="offline-banner">
             <Icon name="server" />
             <span>
-              <strong>The API is offline.</strong> Start <code>aishield-api</code> or the Docker
-              stack, then refresh this workspace.
+              <strong>API가 오프라인입니다.</strong> <code>aishield-api</code> 또는 Docker 스택을 시작한 뒤 이 워크스페이스를 새로고침하세요.
             </span>
             <button type="button" onClick={() => void refresh()}>
-              Retry connection
+              다시 연결
             </button>
           </div>
         )}
@@ -653,6 +673,13 @@ function App() {
           />
         )}
 
+        {page === "llm" && (
+          <LlmRedTeamPage
+            runs={llmRedTeams}
+            onOpenLlmRedTeam={() => setDialog("llm-red-team")}
+          />
+        )}
+
         {page === "jobs" && (
           <JobsPage
             hasPendingJob={hasPendingJob}
@@ -701,8 +728,8 @@ function App() {
 
       {dialog === "baseline" && (
         <Dialog
-          title="Run a clean baseline"
-          description="Measure unperturbed model behavior and seal the complete evidence record."
+          title="clean 베이스라인 실행"
+          description="변형 없는 모델 동작을 측정하고 전체 증거 기록을 봉인합니다."
           onClose={() => setDialog(null)}
         >
           <BaselineForm
@@ -716,8 +743,8 @@ function App() {
       )}
       {dialog === "attack" && (
         <Dialog
-          title="Run a bounded attack"
-          description="Generate adversarial inputs and compare paired clean and robust metrics."
+          title="경계 공격 실행"
+          description="적대적 입력을 생성하고 clean·robust 지표를 짝지어 비교합니다."
           onClose={() => setDialog(null)}
         >
           <AttackForm
@@ -731,8 +758,8 @@ function App() {
       )}
       {dialog === "defense" && (
         <Dialog
-          title="Evaluate a preprocessing defense"
-          description="Compare one sample population before the defense, after it, and under an adaptive attack."
+          title="전처리 방어 평가"
+          description="같은 샘플 집단을 방어 전·후, 그리고 적응 공격 하에서 비교합니다."
           onClose={() => setDialog(null)}
         >
           <DefenseForm
@@ -746,9 +773,9 @@ function App() {
       )}
       {dialog === "remote-attack" && (
         <Dialog
-          kicker="Authorized target"
-          title="Attack a remote model"
-          description="Query-only black-box attack against a classifier you are authorized to test."
+          kicker="인가된 대상"
+          title="원격 모델 공격"
+          description="인가된 분류기에 대한 질의 전용 블랙박스 공격."
           onClose={() => setDialog(null)}
         >
           <RemoteAttackForm
@@ -759,10 +786,24 @@ function App() {
           />
         </Dialog>
       )}
+      {dialog === "llm-red-team" && (
+        <Dialog
+          kicker="인가된 대상"
+          title="LLM 레드팀"
+          description="인가된 LLM에 대한 질의 전용 prompt-injection 점검."
+          onClose={() => setDialog(null)}
+        >
+          <LlmRedTeamForm
+            busy={busy}
+            onCancel={() => setDialog(null)}
+            onSubmit={createLlmRedTeam}
+          />
+        </Dialog>
+      )}
       {dialog === "transfer" && (
         <Dialog
-          title="Run a black-box transfer attack"
-          description="Craft perturbations on a surrogate model and measure them against a different target."
+          title="블랙박스 전이 공격 실행"
+          description="대리 모델에서 섭동을 만들어 다른 대상에 대해 측정합니다."
           onClose={() => setDialog(null)}
         >
           <TransferForm
@@ -776,8 +817,8 @@ function App() {
       )}
       {dialog === "training" && (
         <Dialog
-          title="Train a hardened model"
-          description="Copy a registered model and train it with bounded adversarial examples or TRADES."
+          title="강화 모델 학습"
+          description="등록된 모델을 복제해 경계 적대 예제 또는 TRADES로 학습합니다."
           onClose={() => setDialog(null)}
         >
           <TrainingForm
@@ -791,9 +832,9 @@ function App() {
       )}
       {dialog === "api-key" && (
         <Dialog
-          kicker="Access"
-          title="Enter the API key"
-          description="This deployment protects the registry. The key is kept for this browser tab only."
+          kicker="접근"
+          title="API 키 입력"
+          description="이 배포는 레지스트리를 보호합니다. 키는 이 브라우저 탭에만 보관됩니다."
           onClose={() => setDialog(null)}
         >
           <ApiKeyForm
@@ -809,8 +850,8 @@ function App() {
       )}
       {dialog === "dataset" && (
         <Dialog
-          title="Load a dataset split"
-          description="Use generated data locally or an explicitly approved public adapter."
+          title="데이터셋 split 적재"
+          description="로컬 생성 데이터 또는 명시적으로 승인된 공개 어댑터를 사용합니다."
           onClose={() => setDialog(null)}
         >
           <DatasetForm busy={busy} onCancel={() => setDialog(null)} onSubmit={loadDataset} />
@@ -818,8 +859,8 @@ function App() {
       )}
       {dialog === "model" && (
         <Dialog
-          title="Create a model version"
-          description="Initialize a dataset-compatible model and bind it to content hashes."
+          title="모델 버전 생성"
+          description="데이터셋 호환 모델을 초기화하고 콘텐츠 해시에 묶습니다."
           onClose={() => setDialog(null)}
         >
           <ModelForm

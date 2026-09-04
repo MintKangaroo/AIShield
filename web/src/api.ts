@@ -13,6 +13,8 @@ import type {
   JobRecord,
   JournalEntry,
   JournalReplaySummary,
+  LlmRedTeamRequest,
+  LlmRedTeamRunRecord,
   ModelVersionRecord,
   RemoteAttackRequest,
   RemoteAttackRunRecord,
@@ -95,6 +97,7 @@ export const api = {
   defenses: () => request<DefenseRunRecord[]>(`${registryPath}/defenses`),
   transfers: () => request<TransferRunRecord[]>(`${registryPath}/defenses/transfer`),
   remoteAttacks: () => request<RemoteAttackRunRecord[]>(`${registryPath}/remote-attacks`),
+  llmRedTeams: () => request<LlmRedTeamRunRecord[]>(`${registryPath}/llm-red-team`),
   training: () => request<TrainingRunRecord[]>(`${registryPath}/training`),
   jobs: () => request<JobRecord[]>(`${registryPath}/jobs`),
   job: (jobId: string) => request<JobRecord>(`${registryPath}/jobs/${jobId}`),
@@ -120,6 +123,8 @@ export const api = {
     post<DefenseRunRecord>(`${registryPath}/defenses`, payload),
   runRemoteAttack: (payload: RemoteAttackRequest) =>
     post<RemoteAttackRunRecord>(`${registryPath}/remote-attacks`, payload),
+  runLlmRedTeam: (payload: LlmRedTeamRequest) =>
+    post<LlmRedTeamRunRecord>(`${registryPath}/llm-red-team`, payload),
   runTransfer: (payload: TransferRequest) =>
     post<TransferRunRecord>(`${registryPath}/defenses/transfer`, payload),
   runTraining: (payload: TrainingRequest) =>

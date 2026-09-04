@@ -27,10 +27,9 @@ export function JournalTable({ entries }: { entries: JournalEntry[] }) {
         <span className="empty-icon">
           <Icon name="book" size={22} />
         </span>
-        <h3>The metadata journal is empty</h3>
+        <h3>메타데이터 저널이 비어 있습니다</h3>
         <p>
-          Every dataset, model, baseline, attack, defense, transfer, and training record is appended
-          here as canonical JSON before it is returned to a client.
+          모든 데이터셋·모델·베이스라인·공격·방어·전이·학습 레코드는 클라이언트로 반환되기 전에 canonical JSON으로 여기에 append됩니다.
         </p>
       </div>
     );
@@ -43,7 +42,7 @@ export function JournalTable({ entries }: { entries: JournalEntry[] }) {
 
   return (
     <>
-      <div className="journal-filters" role="group" aria-label="Filter journal by record kind">
+      <div className="journal-filters" role="group" aria-label="레코드 종류별 저널 필터">
         {kinds.map((item) => (
           <button
             className={kind === item ? "active" : ""}
@@ -63,9 +62,9 @@ export function JournalTable({ entries }: { entries: JournalEntry[] }) {
       <div className="journal-table">
         <div className="journal-head">
           <span>#</span>
-          <span>Kind</span>
-          <span>Record id</span>
-          <span>Recorded at</span>
+          <span>종류</span>
+          <span>레코드 id</span>
+          <span>기록 시각</span>
           <span />
         </div>
         {visible.map(({ entry, index }) => {

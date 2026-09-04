@@ -21,27 +21,26 @@ export function RegistryPage({
             <Icon name="shield" size={26} />
           </span>
           <div>
-            <h2>Trusted runtime inventory</h2>
+            <h2>신뢰 런타임 인벤토리</h2>
             <p>
-              Process-local handles with immutable identities. Files remain content-addressed in
-              configured storage.
+              불변 정체성을 가진 프로세스 로컬 핸들. 파일은 설정된 저장소에 콘텐츠 주소로 남습니다.
             </p>
           </div>
         </div>
         <span className="policy-pill">
           <i /> External downloads{" "}
-          {datasets.some((item) => item.source === "approved_public") ? "in use" : "restricted"}
+          {datasets.some((item) => item.source === "approved_public") ? "사용 중" : "제한됨"}
         </span>
       </section>
 
       <section className="panel registry-section">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Input provenance</span>
-            <h3>Datasets</h3>
+            <span className="kicker">입력 출처</span>
+            <h3>데이터셋</h3>
           </div>
           <button className="button secondary compact" type="button" onClick={onOpenDataset}>
-            <Icon name="plus" size={15} /> Load dataset
+            <Icon name="plus" size={15} /> 데이터셋 적재
           </button>
         </div>
         <div className="registry-grid">
@@ -52,7 +51,7 @@ export function RegistryPage({
                   <Icon name="database" />
                 </span>
                 <span className={`source-badge ${dataset.source}`}>
-                  {dataset.source === "generated" ? "Generated" : "Approved public"}
+                  {dataset.source === "generated" ? "생성됨" : "승인된 공개"}
                 </span>
               </div>
               <h4>{dataset.name.toUpperCase()}</h4>
@@ -63,15 +62,15 @@ export function RegistryPage({
                   <dd>{dataset.split}</dd>
                 </div>
                 <div>
-                  <dt>Samples</dt>
+                  <dt>샘플 수</dt>
                   <dd>{dataset.sample_count.toLocaleString()}</dd>
                 </div>
                 <div>
-                  <dt>Shape</dt>
+                  <dt>형태</dt>
                   <dd>{dataset.input_shape.join(" × ")}</dd>
                 </div>
                 <div>
-                  <dt>Classes</dt>
+                  <dt>클래스</dt>
                   <dd>{dataset.num_classes}</dd>
                 </div>
               </dl>
@@ -86,8 +85,8 @@ export function RegistryPage({
               <span>
                 <Icon name="plus" />
               </span>
-              <b>Load the first dataset</b>
-              <small>Signal-10 works without a download.</small>
+              <b>첫 데이터셋 적재</b>
+              <small>Signal-10은 다운로드 없이 동작합니다.</small>
             </button>
           )}
         </div>
@@ -96,8 +95,8 @@ export function RegistryPage({
       <section className="panel registry-section">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Model integrity</span>
-            <h3>Model versions</h3>
+            <span className="kicker">모델 무결성</span>
+            <h3>모델 버전</h3>
           </div>
           <button
             className="button secondary compact"
@@ -105,7 +104,7 @@ export function RegistryPage({
             type="button"
             onClick={onOpenModel}
           >
-            <Icon name="plus" size={15} /> Create model
+            <Icon name="plus" size={15} /> 모델 생성
           </button>
         </div>
         <div className="registry-grid">
@@ -123,20 +122,20 @@ export function RegistryPage({
               </p>
               <dl>
                 <div>
-                  <dt>Parameters</dt>
+                  <dt>파라미터</dt>
                   <dd>{model.parameter_count.toLocaleString()}</dd>
                 </div>
                 <div>
-                  <dt>Classes</dt>
+                  <dt>클래스</dt>
                   <dd>{model.num_classes}</dd>
                 </div>
                 <div>
-                  <dt>Channels</dt>
+                  <dt>채널</dt>
                   <dd>{model.input_channels}</dd>
                 </div>
                 <div>
-                  <dt>Source</dt>
-                  <dd>{model.source === "trained" ? "Trained" : "Initialized"}</dd>
+                  <dt>출처</dt>
+                  <dd>{model.source === "trained" ? "학습됨" : "초기화됨"}</dd>
                 </div>
               </dl>
               <div className="card-hash">
@@ -155,8 +154,8 @@ export function RegistryPage({
               <span>
                 <Icon name="plus" />
               </span>
-              <b>Create the first model</b>
-              <small>Start with a deterministic SmallCNN.</small>
+              <b>첫 모델 생성</b>
+              <small>결정론적 SmallCNN으로 시작하세요.</small>
             </button>
           )}
         </div>

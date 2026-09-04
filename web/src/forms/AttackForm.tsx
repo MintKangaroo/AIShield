@@ -52,7 +52,7 @@ export function AttackForm({
 
   return (
     <form className="form-grid" onSubmit={submit}>
-      <div className="attack-picker" role="group" aria-label="Attack algorithm">
+      <div className="attack-picker" role="group" aria-label="공격 알고리즘">
         {attackAlgorithms.map((item) => (
           <button
             className={algorithm === item ? "active" : ""}
@@ -67,7 +67,7 @@ export function AttackForm({
       </div>
       <div className="form-row two">
         <label>
-          <span>Dataset split</span>
+          <span>데이터셋 split</span>
           <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
@@ -77,7 +77,7 @@ export function AttackForm({
           </select>
         </label>
         <label>
-          <span>Model version</span>
+          <span>모델 버전</span>
           <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
             {compatibleModels.map((model) => (
               <option key={model.id} value={model.id}>
@@ -87,14 +87,14 @@ export function AttackForm({
           </select>
           {!compatibleModels.length && (
             <small className="field-warning">
-              No compatible model is loaded for this dataset.
+              이 데이터셋에 호환되는 모델이 적재되지 않았습니다.
             </small>
           )}
         </label>
       </div>
       <div className="form-row">
         <label>
-          <span>Epsilon / 255</span>
+          <span>엡실론 / 255</span>
           <input
             max={255}
             min={0.01}
@@ -105,7 +105,7 @@ export function AttackForm({
           />
         </label>
         <label>
-          <span>Iterations</span>
+          <span>반복 횟수</span>
           <input
             disabled={!profile.iterative}
             max={100}
@@ -116,10 +116,10 @@ export function AttackForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -127,7 +127,7 @@ export function AttackForm({
         </label>
       </div>
       <label>
-        <span>Batch size</span>
+        <span>배치 크기</span>
         <input
           max={4096}
           min={1}
@@ -146,7 +146,7 @@ export function AttackForm({
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button
           className="button primary"
@@ -154,7 +154,7 @@ export function AttackForm({
           type="submit"
         >
           <Icon name="spark" size={16} />
-          {busy ? "Generating adversarial inputs…" : `Run ${profile.label}`}
+          {busy ? "적대적 입력 생성 중…" : `${profile.label} 실행`}
         </button>
       </div>
     </form>

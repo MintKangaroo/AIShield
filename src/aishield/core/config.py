@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     attack_targets_allowlist: list[str] = Field(default_factory=list)
     # Hard ceiling on queries per remote attack, regardless of what a request asks.
     remote_attack_max_queries: int = Field(default=20_000, ge=1, le=1_000_000)
+    # Hosts authorized for LLM red-team probing. Empty refuses every target, same
+    # posture as the image endpoint allowlist above.
+    llm_targets_allowlist: list[str] = Field(default_factory=list)
     # One heavy evaluation at a time by default: a single box cannot honestly run
     # several full torch evaluations concurrently without distorting latency evidence.
     max_concurrent_runs: int = Field(default=1, ge=1, le=64)

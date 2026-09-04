@@ -36,6 +36,9 @@ from aishield.evaluation.score import calculate_score
 from aishield.jobs.backend import JobBackend, build_job_backend
 from aishield.jobs.contracts import JobQueueFullError, JobRecord
 from aishield.jobs.tasks import TaskDescriptor, TaskKind, TrainingTask
+from aishield.llm.contracts import LlmRedTeamConfig, LlmRedTeamRunRecord
+from aishield.llm.remote import LlmEndpoint, RemoteLlm
+from aishield.llm.runner import run_llm_red_team
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -111,6 +114,7 @@ class RegistryService:
         self._defenses: dict[UUID, DefenseRunRecord] = {}
         self._transfers: dict[UUID, TransferDefenseRunRecord] = {}
         self._remote_attacks: dict[UUID, RemoteAttackRunRecord] = {}
+        self._llm_red_teams: dict[UUID, LlmRedTeamRunRecord] = {}
         self._training: dict[UUID, TrainingRunRecord] = {}
         self._experiments: dict[UUID, ExperimentResult] = {}
         self._store: MetadataStore = store or build_metadata_store(settings)
@@ -477,6 +481,52 @@ class RegistryService:
             self._remote_attacks[record.id] = record
         self._store.append("remote_attack", record)
         return record
+
+    def run_llm_red_team(
+        self,
+        endpoint: LlmEndpoint,
+        *,
+        config: LlmRedTeamConfig,
+        authorized: bool,
+    ) -> LlmRedTeamRunRecord:
+        """Probe an authorized remote LLM for prompt-injection susceptibility.
+
+        Gated exactly like the image endpoint attack: explicit per-request
+        confirmation plus membership in a configured allowlist, which is empty by
+        default and therefore refuses every target until a host is named.
+        """
+
+        if not authorized:
+            raise RegistryAuthorizationError(
+                "LLM red-team runs require explicit confirmation that you are authorized "
+                "to test the target"
+            )
+        allowlist = self.settings.llm_targets_allowlist
+        if not allowlist:
+            raise RegistryAuthorizationError(
+                "no LLM targets are allowlisted; set AISHIELD_LLM_TARGETS_ALLOWLIST to the "
+                "hosts you are authorized to test"
+            )
+        if endpoint.host not in allowlist:
+            raise RegistryAuthorizationError(
+                f"target host {endpoint.host!r} is not in the configured LLM allowlist"
+            )
+
+        client = RemoteLlm(endpoint)
+        with self._timed_run("llm_red_team", target_host=endpoint.host) as outcome:
+            record = run_llm_red_team(client.complete, endpoint, config=config)
+            outcome["run_id"] = str(record.id)
+            outcome["injection_success_rate"] = record.metrics.injection_success_rate
+        with self._lock:
+            self._llm_red_teams[record.id] = record
+        self._store.append("llm_red_team", record)
+        return record
+
+    def list_llm_red_teams(self) -> list[LlmRedTeamRunRecord]:
+        """List LLM red-team runs in deterministic ID order."""
+
+        with self._lock:
+            return [self._llm_red_teams[key] for key in sorted(self._llm_red_teams, key=str)]
 
     def list_remote_attacks(self) -> list[RemoteAttackRunRecord]:
         """List remote black-box attack runs in deterministic ID order."""

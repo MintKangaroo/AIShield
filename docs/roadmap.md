@@ -73,10 +73,16 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
     - ✅ dashboard prompts for a key instead of reporting an outage
     - per-key scopes and audit of who ran what
 
-13. **Separate LLM security design**
-    - image engine과 분리된 threat/metric contract
-    - prompt/response privacy controls
-    - 실행 기능 전에 authorization과 benchmark policy 확정
+13. **Separate LLM security design** *(in progress)*
+    - ✅ image engine과 분리된 threat/metric contract (`aishield.llm`)
+    - ✅ prompt/response privacy controls (hash-by-default, text opt-in)
+    - ✅ authorization: allowlist + per-request confirmation before any probe
+    - ✅ prompt-injection / system-prompt-leak probes with detectors, query-only
+    - ✅ jailbreak-framing category (roleplay/hypothetical/developer/prefix) against a
+      benign planted token
+    - ✅ obfuscation-aware detectors (hyphen/space/reverse/base64/base32/hex)
+    - ✅ dashboard surface
+    - conversation-level / multi-turn probes and a broader detector suite
 
 추가 attack이나 defense 하나의 결과만으로 보편적인 강건성을 주장하지 않습니다. 다음
 milestone으로 이동하기 전에 이전 단계의 raw metric과 quality gate가 유지되어야 합니다.

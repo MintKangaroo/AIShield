@@ -21,7 +21,7 @@ export function JournalPage({
             <Icon name="book" size={26} />
           </span>
           <div>
-            <h2>Append-only metadata journal</h2>
+            <h2>Append-only 메타데이터 저널</h2>
             <p>
               Every registry record is written to <code>registry/journal.jsonl</code> as canonical
               JSON and flushed before the API returns it. Entries are never rewritten or deleted.
@@ -36,8 +36,8 @@ export function JournalPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">Restart recovery</span>
-            <h3>Replay the journal</h3>
+            <span className="kicker">재시작 복구</span>
+            <h3>저널 재생</h3>
           </div>
           <button
             className="button secondary compact"
@@ -46,26 +46,26 @@ export function JournalPage({
             onClick={onReplay}
           >
             <Icon name="refresh" size={15} />
-            {busy ? "Replaying…" : "Replay journal"}
+            {busy ? "재생 중…" : "저널 재생"}
           </button>
         </div>
         {summary ? (
           <>
             <dl className="score-facts replay-facts">
               <div>
-                <dt>Entries read</dt>
+                <dt>읽은 항목</dt>
                 <dd>{summary.entries_read}</dd>
               </div>
               <div>
-                <dt>Datasets</dt>
+                <dt>데이터셋</dt>
                 <dd>{summary.datasets_restored}</dd>
               </div>
               <div>
-                <dt>Models</dt>
+                <dt>모델</dt>
                 <dd>{summary.models_restored}</dd>
               </div>
               <div>
-                <dt>Runs</dt>
+                <dt>실행</dt>
                 <dd>
                   {summary.baselines_restored +
                     summary.attacks_restored +
@@ -75,7 +75,7 @@ export function JournalPage({
                 </dd>
               </div>
               <div>
-                <dt>Jobs skipped</dt>
+                <dt>건너뛴 작업</dt>
                 <dd>{summary.jobs_skipped}</dd>
               </div>
             </dl>
@@ -83,7 +83,7 @@ export function JournalPage({
               <div className="attack-warning" key={reason}>
                 <Icon name="activity" size={16} />
                 <span>
-                  <strong>Not restored</strong>
+                  <strong>복구 안 됨</strong>
                   {reason}
                 </span>
               </div>
@@ -91,9 +91,7 @@ export function JournalPage({
           </>
         ) : (
           <p className="score-hint">
-            Replay rebuilds the in-memory index from this journal. Run evidence is always restored;
-            a dataset or model handle is rebuilt only when the files on disk still hash to the
-            recorded identity, and queued jobs from a dead process are never resurrected.
+            재생은 이 저널에서 메모리 인덱스를 재구성합니다. 실행 증거는 항상 복구되고, 데이터셋·모델 핸들은 디스크 파일 해시가 기록된 정체성과 일치할 때만 재구성되며, 죽은 프로세스의 큐잉된 작업은 되살리지 않습니다.
           </p>
         )}
       </section>

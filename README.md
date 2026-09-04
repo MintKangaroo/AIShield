@@ -324,6 +324,7 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | `GET` | `/api/v1/health/ready` | metadata store와 job broker 접근 확인 (실패 시 503) |
 | — | `/api/v1/registry/**` | `AISHIELD_API_KEY` 설정 시 전부 키 필요 |
 | `POST` | `/api/v1/registry/remote-attacks` | 인가된 원격 endpoint 대상 query-only black-box 공격 |
+| `POST` | `/api/v1/registry/llm-red-team` | 인가된 원격 LLM 대상 prompt-injection 레드팀 |
 | `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
 | `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
 | `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
@@ -610,7 +611,7 @@ docker compose config --quiet
 
 - Ruff lint + format
 - mypy `strict = true`
-- pytest 255개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
+- pytest 271개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
   `AISHIELD_TEST_DATABASE_URL`·`AISHIELD_TEST_REDIS_URL`이 설정된 경우에만 실행되고,
   없으면 skip합니다)
 - 생성된 JSON Schema drift check

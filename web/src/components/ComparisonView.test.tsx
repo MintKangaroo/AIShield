@@ -32,7 +32,7 @@ describe("ComparisonView", () => {
   it("shows a comparable verdict and the delta", () => {
     render(<ComparisonView comparison={comparison()} />);
 
-    expect(screen.getByText("Comparable")).toBeInTheDocument();
+    expect(screen.getByText("비교 가능")).toBeInTheDocument();
     expect(screen.getByText("+5.00 pt")).toBeInTheDocument();
   });
 
@@ -46,7 +46,7 @@ describe("ComparisonView", () => {
       />,
     );
 
-    expect(screen.getByText("Not a controlled comparison")).toBeInTheDocument();
+    expect(screen.getByText("통제된 비교가 아님")).toBeInTheDocument();
     expect(screen.getByText("These runs used different datasets.")).toBeInTheDocument();
   });
 
@@ -56,6 +56,6 @@ describe("ComparisonView", () => {
     );
 
     expect(screen.getByText("torch differs: 2.13.0 → 2.14.0.")).toBeInTheDocument();
-    expect(screen.getByText("Comparable")).toBeInTheDocument();
+    expect(screen.getByText("비교 가능")).toBeInTheDocument();
   });
 });

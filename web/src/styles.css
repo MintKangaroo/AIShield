@@ -2647,6 +2647,90 @@ main {
   padding: 4px 18px 8px;
 }
 
+.probe-categories {
+  display: grid;
+  gap: 8px;
+}
+
+.probe-categories button {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #303749;
+  border-radius: 7px;
+  color: #8992a4;
+  background: #0c0f17;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+
+.probe-categories button.active {
+  border-color: rgb(187 244 81 / 35%);
+  color: var(--lime);
+  background: var(--lime-soft);
+}
+
+.probe-categories button small {
+  color: #5f687b;
+  font-size: 8px;
+}
+
+.probe-categories button.active small {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.defense-head.llm-head,
+.defense-row.llm-row {
+  grid-template-columns: minmax(150px, 1.4fr) minmax(70px, 0.6fr) minmax(90px, 0.7fr) 18px;
+}
+
+.robust-value.warn {
+  color: var(--red);
+}
+
+.probe-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.probe-row {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.probe-row.hit {
+  border-color: rgb(243 111 117 / 28%);
+}
+
+.probe-row.hit > .icon {
+  color: var(--red);
+}
+
+.probe-row.clean > .icon {
+  color: var(--lime);
+}
+
+.probe-row b {
+  font: 500 8px "IBM Plex Mono", monospace;
+  color: #b9c0ce;
+}
+
+.probe-row small {
+  display: block;
+  color: #697286;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
 .replay-facts {
   padding: 4px 18px 14px;
 }

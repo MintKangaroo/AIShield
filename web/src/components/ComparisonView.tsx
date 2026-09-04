@@ -8,7 +8,7 @@ export function ComparisonView({ comparison }: { comparison: Comparison }) {
         <div className="verification-result pass comparison-verdict">
           <Icon name="check" />
           <span>
-            <strong>Comparable</strong>
+            <strong>비교 가능</strong>
             Same model, dataset, seed and sample population — the deltas isolate the change.
           </span>
         </div>
@@ -16,7 +16,7 @@ export function ComparisonView({ comparison }: { comparison: Comparison }) {
         <div className="verification-result fail comparison-verdict">
           <Icon name="close" />
           <span>
-            <strong>Not a controlled comparison</strong>
+            <strong>통제된 비교가 아님</strong>
             The runs differ in ways that make the deltas arithmetic, not findings.
           </span>
         </div>

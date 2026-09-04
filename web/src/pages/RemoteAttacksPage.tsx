@@ -19,15 +19,14 @@ export function RemoteAttacksPage({
             <Icon name="transfer" size={26} />
           </span>
           <div>
-            <h2>Black-box attacks on deployed models</h2>
+            <h2>배포 모델 대상 블랙박스 공격</h2>
             <p>
-              Query an authorized remote classifier with images and read back only its scores — no
-              weights, no gradient. The host must be allowlisted and each run explicitly authorized.
+              인가된 원격 분류기에 이미지를 질의하고 score만 돌려받습니다 — 가중치도 그래디언트도 없습니다. 호스트는 allowlist에 있어야 하고 각 실행은 명시적으로 인가되어야 합니다.
             </p>
           </div>
         </div>
         <button className="button secondary compact" type="button" onClick={onOpenRemoteAttack}>
-          <Icon name="spark" size={15} /> Run black-box attack
+          <Icon name="spark" size={15} /> 블랙박스 공격 실행
         </button>
       </section>
 
@@ -35,13 +34,13 @@ export function RemoteAttacksPage({
         {runs.length ? (
           <div className="attack-table">
             <div className="attack-head remote-head">
-              <span>Target</span>
-              <span>Probe</span>
-              <span>Clean</span>
-              <span>Robust</span>
-              <span>Success</span>
-              <span>Queries</span>
-              <span>Bound</span>
+              <span>대상</span>
+              <span>점검</span>
+              <span>clean</span>
+              <span>robust</span>
+              <span>성공</span>
+              <span>질의 수</span>
+              <span>경계</span>
             </div>
             {runs.map((run) => {
               const dataset = datasets.find((item) => item.id === run.dataset_id);
@@ -76,14 +75,14 @@ export function RemoteAttacksPage({
             <span className="empty-icon transfer">
               <Icon name="transfer" size={22} />
             </span>
-            <h3>No remote attacks yet</h3>
+            <h3>아직 원격 공격이 없습니다</h3>
             <p>
               Point AIShield at an image classifier you are authorized to test. Set
               <code> AISHIELD_ATTACK_TARGETS_ALLOWLIST</code> on the server first — an empty
               allowlist refuses every target.
             </p>
             <button className="button primary compact" type="button" onClick={onOpenRemoteAttack}>
-              Configure a target
+              대상 설정
             </button>
           </div>
         )}
@@ -93,7 +92,7 @@ export function RemoteAttacksPage({
         <div className="attack-warning">
           <Icon name="activity" size={16} />
           <span>
-            <strong>Interpretation</strong>
+            <strong>해석</strong>
             {runs[0].warnings[0]}
           </span>
         </div>

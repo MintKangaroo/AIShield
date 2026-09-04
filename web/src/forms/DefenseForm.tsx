@@ -58,7 +58,7 @@ export function DefenseForm({
     <form className="form-grid" onSubmit={submit}>
       <div className="form-row two">
         <label>
-          <span>Dataset split</span>
+          <span>데이터셋 split</span>
           <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
@@ -68,7 +68,7 @@ export function DefenseForm({
           </select>
         </label>
         <label>
-          <span>Model version</span>
+          <span>모델 버전</span>
           <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
             {compatibleModels.map((model) => (
               <option key={model.id} value={model.id}>
@@ -78,14 +78,14 @@ export function DefenseForm({
           </select>
           {!compatibleModels.length && (
             <small className="field-warning">
-              No compatible model is loaded for this dataset.
+              이 데이터셋에 호환되는 모델이 적재되지 않았습니다.
             </small>
           )}
         </label>
       </div>
       <div className="form-row two">
         <label>
-          <span>Bit depth</span>
+          <span>비트 심도</span>
           <input
             max={8}
             min={1}
@@ -98,7 +98,7 @@ export function DefenseForm({
           </small>
         </label>
         <label>
-          <span>Adaptive attack</span>
+          <span>적응 공격</span>
           <select
             value={attackAlgorithm}
             onChange={(event) => setAttackAlgorithm(event.target.value as AttackAlgorithm)}
@@ -113,7 +113,7 @@ export function DefenseForm({
       </div>
       <div className="form-row">
         <label>
-          <span>Epsilon / 255</span>
+          <span>엡실론 / 255</span>
           <input
             max={255}
             min={0.01}
@@ -124,7 +124,7 @@ export function DefenseForm({
           />
         </label>
         <label>
-          <span>Iterations</span>
+          <span>반복 횟수</span>
           <input
             disabled={!iterative}
             max={100}
@@ -135,10 +135,10 @@ export function DefenseForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -146,7 +146,7 @@ export function DefenseForm({
         </label>
       </div>
       <label>
-        <span>Batch size</span>
+        <span>배치 크기</span>
         <input
           max={4096}
           min={1}
@@ -158,18 +158,16 @@ export function DefenseForm({
       <div className="policy-note attack-note">
         <Icon name="shield" />
         <p>
-          The same sample population is measured before the defense, after the defense, and again
-          under a defense-aware adaptive attack. A flat adaptive gradient is reported as masking,
-          not as robustness.
+          같은 샘플 집단을 방어 전, 방어 후, 그리고 방어 인지 적응 공격 하에서 다시 측정합니다. 평평한 적응 그래디언트는 강건성이 아니라 마스킹으로 보고됩니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!datasetId || !modelId || busy} type="submit">
           <Icon name="shield" size={16} />
-          {busy ? "Evaluating defense…" : "Run defense evaluation"}
+          {busy ? "방어 평가 중…" : "방어 평가 실행"}
         </button>
       </div>
     </form>

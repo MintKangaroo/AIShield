@@ -28,6 +28,8 @@ from aishield.evaluation.contracts import (
 )
 from aishield.evaluation.score import RobustnessScore, calculate_score
 from aishield.jobs.contracts import JobNotCancellableError, JobRecord
+from aishield.llm.contracts import LlmRedTeamConfig, LlmRedTeamRunRecord, ProbeCategory
+from aishield.llm.remote import LlmEndpoint
 from aishield.registry.contracts import (
     DatasetName,
     DatasetRecord,
@@ -210,6 +212,22 @@ class RemoteAttackRequest(RequestModel):
     batch_size: int = Field(default=64, gt=0, le=4096)
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
     timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
+    auth_header: str | None = Field(default=None, max_length=128)
+    auth_value: str | None = Field(default=None, max_length=4096)
+
+
+class LlmRedTeamRequest(RequestModel):
+    """Run an authorized prompt-injection red-team against a remote LLM."""
+
+    endpoint_url: str = Field(min_length=1, max_length=2048)
+    authorized: bool = False
+    categories: list[ProbeCategory] = Field(
+        default_factory=lambda: list(ProbeCategory), min_length=1
+    )
+    max_probes: int = Field(default=50, gt=0, le=1000)
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    retain_text: bool = False
+    timeout_seconds: float = Field(default=60.0, gt=0.0, le=300.0)
     auth_header: str | None = Field(default=None, max_length=128)
     auth_value: str | None = Field(default=None, max_length=4096)
 
@@ -662,6 +680,51 @@ def run_remote_attack(
 )
 def list_remote_attacks(registry: RegistryDependency) -> list[RemoteAttackRunRecord]:
     return registry.list_remote_attacks()
+
+
+@router.post(
+    "/llm-red-team",
+    response_model=LlmRedTeamRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run an authorized prompt-injection red-team against a remote LLM",
+)
+def run_llm_red_team(
+    payload: LlmRedTeamRequest, registry: RegistryDependency
+) -> LlmRedTeamRunRecord:
+    endpoint = LlmEndpoint(
+        url=payload.endpoint_url,
+        timeout_seconds=payload.timeout_seconds,
+        auth_header=payload.auth_header,
+        auth_value=payload.auth_value,
+    )
+    try:
+        return registry.run_llm_red_team(
+            endpoint,
+            config=LlmRedTeamConfig(
+                categories=tuple(dict.fromkeys(payload.categories)),
+                max_probes=payload.max_probes,
+                seed=payload.seed,
+                retain_text=payload.retain_text,
+            ),
+            authorized=payload.authorized,
+        )
+    except (
+        RegistryAuthorizationError,
+        RegistryBusyError,
+        RegistryError,
+        RegistryNotFoundError,
+        ValueError,
+    ) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/llm-red-team",
+    response_model=list[LlmRedTeamRunRecord],
+    summary="List authorized LLM red-team runs",
+)
+def list_llm_red_teams(registry: RegistryDependency) -> list[LlmRedTeamRunRecord]:
+    return registry.list_llm_red_teams()
 
 
 @router.post(

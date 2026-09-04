@@ -26,7 +26,7 @@ export function ModelForm({
       }}
     >
       <label>
-        <span>Compatible dataset</span>
+        <span>호환 데이터셋</span>
         <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
           {datasets.map((dataset) => (
             <option key={dataset.id} value={dataset.id}>
@@ -37,7 +37,7 @@ export function ModelForm({
         </select>
       </label>
       <label>
-        <span>Initialization seed</span>
+        <span>초기화 시드</span>
         <input
           max={4_294_967_295}
           min={0}
@@ -49,17 +49,16 @@ export function ModelForm({
       <div className="policy-note">
         <Icon name="layers" />
         <p>
-          The built-in SmallCNN is initialized deterministically and stored as a weights-only,
-          content-addressed PyTorch state dictionary.
+          내장 SmallCNN은 결정론적으로 초기화되어 가중치 전용·콘텐츠 주소 PyTorch state dict으로 저장됩니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!datasetId || busy} type="submit">
           <Icon name="layers" size={16} />
-          {busy ? "Building model…" : "Create SmallCNN"}
+          {busy ? "모델 생성 중…" : "SmallCNN 생성"}
         </button>
       </div>
     </form>

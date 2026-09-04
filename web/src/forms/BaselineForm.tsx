@@ -41,7 +41,7 @@ export function BaselineForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        <span>Dataset split</span>
+        <span>데이터셋 split</span>
         <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
           {datasets.map((dataset) => (
             <option key={dataset.id} value={dataset.id}>
@@ -52,7 +52,7 @@ export function BaselineForm({
         </select>
       </label>
       <label>
-        <span>Model version</span>
+        <span>모델 버전</span>
         <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
           {compatibleModels.map((model) => (
             <option key={model.id} value={model.id}>
@@ -61,12 +61,12 @@ export function BaselineForm({
           ))}
         </select>
         {!compatibleModels.length && (
-          <small className="field-warning">No compatible model is loaded for this dataset.</small>
+          <small className="field-warning">이 데이터셋에 호환되는 모델이 적재되지 않았습니다.</small>
         )}
       </label>
       <div className="form-row">
         <label>
-          <span>Seed</span>
+          <span>시드</span>
           <input
             max={4_294_967_295}
             min={0}
@@ -76,7 +76,7 @@ export function BaselineForm({
           />
         </label>
         <label>
-          <span>Batch size</span>
+          <span>배치 크기</span>
           <input
             max={4096}
             min={1}
@@ -86,10 +86,10 @@ export function BaselineForm({
           />
         </label>
         <label>
-          <span>Sample cap</span>
+          <span>샘플 상한</span>
           <input
             min={1}
-            placeholder="All samples"
+            placeholder="전체 샘플"
             type="number"
             value={maxSamples}
             onChange={(event) => setMaxSamples(event.target.value)}
@@ -99,17 +99,16 @@ export function BaselineForm({
       <div className="policy-note">
         <Icon name="fingerprint" />
         <p>
-          Deterministic algorithms, model and dataset hashes, dependency versions, and ordered
-          prediction fingerprints are captured automatically.
+          결정론적 알고리즘, 모델·데이터셋 해시, 의존성 버전, 순서가 있는 예측 지문이 자동으로 기록됩니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!canSubmit || busy} type="submit">
           <Icon name="play" size={16} />
-          {busy ? "Running evaluation…" : "Run clean baseline"}
+          {busy ? "평가 실행 중…" : "clean 베이스라인 실행"}
         </button>
       </div>
     </form>
