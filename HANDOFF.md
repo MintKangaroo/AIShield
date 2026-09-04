@@ -191,6 +191,25 @@ query-only 공격을 수행합니다(`test_attacks_a_real_served_model_over_http
 별도 트랙(메모리 [[llm-redteam-followup]]에 기록, 추후 진행). decision-only(라벨만 반환)
 endpoint용 HopSkipJump류는 아직 없습니다 — 현재는 score 기반 Square만.
 
+### 15. LLM 레드팀 트랙 (첫 슬라이스)
+
+이미지 엔진과 **완전히 분리된** `aishield.llm` 패키지. 위협·지표 계약을 재사용하지 않습니다
+(L∞·accuracy 없음). query-only prompt-injection 레드팀:
+
+- system prompt에 canary를 심고, 유출(`system_prompt_leak`)·주입 marker 강제
+  (`instruction_override`)를 시도, probe별 detector가 성공 판정. 지표는 카테고리별
+  injection success rate.
+- **probe는 진단 도구이지 exploit 무기고가 아닙니다.** 텍스트는 일반적·무해하게 유지;
+  가치는 "내 모델이 이 부류에 취약한가"를 측정하는 detector에 있습니다.
+- 인가: `AISHIELD_LLM_TARGETS_ALLOWLIST` + 요청별 `authorized` (이미지 원격 공격과 동일).
+- 프라이버시: prompt/completion 기본 해시만 저장, `retain_text` opt-in 시에만 원문.
+- `aishield/llm/{contracts,probes,remote,runner}.py`, `POST/GET /registry/llm-red-team`.
+- 실제 HTTP LLM 서버로 end-to-end 검증(취약 모델 ISR 1.0 vs 하드닝 0.0), 인가 거부 3종.
+
+**아직 아닌 것:** 대시보드 UI 없음(API/CLI만). detector가 substring 기반이라 하이픈·인코딩
+유출은 못 잡음 — `test_the_encode_leak_is_detected_even_when_hyphenated`에 정직하게 고정.
+decision-only jailbreak 카테고리·풍부한 detector는 다음.
+
 ## 이번에 잡은 실제 버그
 
 1. **대시보드가 존재하지 않는 경로 호출** — transfer는 `/registry/defenses/transfer`인데

@@ -32,6 +32,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
 | `POST` | `/api/v1/registry/defenses/transfer` | Surrogate-to-target transfer evaluation |
 | `POST / GET` | `/api/v1/registry/remote-attacks` | Authorized query-only black-box attack on a remote endpoint / list |
+| `POST / GET` | `/api/v1/registry/llm-red-team` | Authorized prompt-injection red-team of a remote LLM / list |
 | `GET` | `/api/v1/registry/defenses/transfer` | Transfer evaluation list |
 | `POST` | `/api/v1/registry/robustness-score` | Transparent aggregate over attack evidence |
 | `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |
@@ -232,6 +233,42 @@ curl -X POST http://localhost:8000/api/v1/registry/remote-attacks -H 'Content-Ty
   "endpoint_url": "http://model.internal.example.com/score",
   "num_classes": 10, "dataset_id": "<uuid>", "authorized": true,
   "epsilon": 0.03137, "max_queries": 5000, "max_samples": 256
+}'
+```
+
+## LLM prompt-injection red-team
+
+A separate track from the image attacks, with its own threat model and metrics —
+no perturbation norm, no accuracy on a labelled set. It probes a remote LLM
+endpoint for prompt injection: a secret canary is planted in the system prompt,
+inputs try to make the model leak it or follow an injected instruction, and a
+detector decides per probe whether the target held. The aggregate is an injection
+success rate by category, not robust accuracy.
+
+These are diagnostic instruments for a model you operate, not an exploit library:
+the probe texts are generic and benign, and the value is the detector telling you
+whether your model is vulnerable so you can harden it.
+
+Gated like the remote image attack: the host must be in
+`AISHIELD_LLM_TARGETS_ALLOWLIST` (empty refuses every target) and each request
+must set `authorized: true`; either failing returns 403.
+
+Prompts and completions can carry sensitive content, so by default only their
+SHA-256 fingerprints and the detector verdict are recorded. Set `retain_text:
+true` to keep the raw text — an explicit opt-in.
+
+The endpoint contract:
+
+```
+POST <endpoint_url>
+request:  {"format": "aishield.llm-chat.v1", "system": "...", "prompt": "..."}
+response: {"completion": "..."}
+```
+
+```bash
+curl -X POST http://localhost:8000/api/v1/registry/llm-red-team -H 'Content-Type: application/json' -d '{
+  "endpoint_url": "http://llm.internal.example.com/chat", "authorized": true,
+  "categories": ["system_prompt_leak", "instruction_override"]
 }'
 ```
 
