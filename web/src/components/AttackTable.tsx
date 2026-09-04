@@ -26,8 +26,8 @@ export function AttackTable({
         <span className="empty-icon attack">
           <Icon name="spark" size={22} />
         </span>
-        <h3>No adversarial evaluations yet</h3>
-        <p>Run FGSM for a fast signal or PGD for a stronger iterative check.</p>
+        <h3>아직 적대적 평가가 없습니다</h3>
+        <p>빠른 신호는 FGSM, 더 강한 반복 점검은 PGD를 실행하세요.</p>
       </div>
     );
   }
@@ -35,12 +35,12 @@ export function AttackTable({
   return (
     <div className="attack-table">
       <div className="attack-head">
-        <span>Attack</span>
-        <span>Target</span>
-        <span>Clean</span>
-        <span>Robust</span>
-        <span>Success</span>
-        <span>Bound</span>
+        <span>공격</span>
+        <span>대상</span>
+        <span>clean</span>
+        <span>robust</span>
+        <span>성공</span>
+        <span>경계</span>
         <span />
       </div>
       {attacks.map((attack, index) => {
@@ -50,7 +50,7 @@ export function AttackTable({
         return (
           <div className="attack-row-wrap" key={attack.id}>
             {onToggleScore && (
-              <label className="score-pick" title="Include in robustness score">
+              <label className="score-pick" title="강건성 점수에 포함">
                 <input
                   aria-label={`Include ${attack.config.algorithm.toUpperCase()} run in robustness score`}
                   checked={scoreSelected}
@@ -72,8 +72,8 @@ export function AttackTable({
                 </span>
               </span>
               <span className="target-cell">
-                <b>{model?.architecture ?? "Unknown model"}</b>
-                <small>{dataset?.name.toUpperCase() ?? "Unknown dataset"}</small>
+                <b>{model?.architecture ?? "알 수 없는 모델"}</b>
+                <small>{dataset?.name.toUpperCase() ?? "알 수 없는 데이터셋"}</small>
               </span>
               <span className="mono">{formatPercent(attack.metrics.clean_accuracy)}</span>
               <strong className="robust-value">

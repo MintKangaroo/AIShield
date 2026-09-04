@@ -29,7 +29,7 @@ export function DatasetForm({
       }}
     >
       <label>
-        <span>Dataset adapter</span>
+        <span>데이터셋 어댑터</span>
         <select
           value={name}
           onChange={(event) => {
@@ -49,8 +49,8 @@ export function DatasetForm({
             value={split}
             onChange={(event) => setSplit(event.target.value as DatasetRecord["split"])}
           >
-            <option value="test">Test</option>
-            <option value="train">Train</option>
+            <option value="test">테스트</option>
+            <option value="train">학습</option>
           </select>
         </label>
         <label className={`check-field ${name === "synthetic" ? "disabled" : ""}`}>
@@ -61,25 +61,24 @@ export function DatasetForm({
             onChange={(event) => setDownload(event.target.checked)}
           />
           <span>
-            Download if missing
-            <small>Requires AISHIELD_ALLOW_PUBLIC_DOWNLOADS=true</small>
+            없으면 다운로드
+            <small>AISHIELD_ALLOW_PUBLIC_DOWNLOADS=true 필요</small>
           </span>
         </label>
       </div>
       <div className="policy-note">
         <Icon name="shield" />
         <p>
-          Arbitrary URLs are never accepted. Public adapters use fixed canonical sources; Signal-10
-          is deterministic synthetic data and is not a security benchmark.
+          임의 URL은 절대 허용되지 않습니다. 공개 어댑터는 고정된 표준 소스를 쓰며, Signal-10은 결정론적 합성 데이터로 보안 벤치마크가 아닙니다.
         </p>
       </div>
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={busy} type="submit">
           <Icon name="database" size={16} />
-          {busy ? "Loading dataset…" : "Load dataset"}
+          {busy ? "데이터셋 적재 중…" : "데이터셋 적재"}
         </button>
       </div>
     </form>

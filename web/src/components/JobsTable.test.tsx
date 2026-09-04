@@ -8,7 +8,7 @@ describe("JobsTable", () => {
   it("invites the first queued run when empty", () => {
     render(<JobsTable jobs={[]} />);
 
-    expect(screen.getByText(/No background jobs/)).toBeInTheDocument();
+    expect(screen.getByText(/백그라운드 작업이 없습니다/)).toBeInTheDocument();
   });
 
   it("shows a failed job's error as the result", () => {

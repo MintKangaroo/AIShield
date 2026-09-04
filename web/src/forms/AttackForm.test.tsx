@@ -22,12 +22,12 @@ function setup(onSubmit = vi.fn<(payload: AttackRequest) => Promise<void>>()) {
 
 /** Pick an algorithm from the picker group, anchored so "PGD" never matches "APGD". */
 async function selectAlgorithm(label: string) {
-  const picker = screen.getByRole("group", { name: "Attack algorithm" });
+  const picker = screen.getByRole("group", { name: "공격 알고리즘" });
   await userEvent.click(within(picker).getByRole("button", { name: new RegExp(`^${label}`) }));
 }
 
 function submitButton() {
-  return screen.getByRole("button", { name: /^Run / });
+  return screen.getByRole("button", { name: /실행$/ });
 }
 
 describe("AttackForm", () => {
@@ -91,7 +91,7 @@ describe("AttackForm", () => {
     const onSubmit = setup();
 
     await selectAlgorithm("PGD");
-    const epsilon = screen.getByLabelText("Epsilon / 255");
+    const epsilon = screen.getByLabelText("엡실론 / 255");
     await userEvent.clear(epsilon);
     await userEvent.type(epsilon, "1");
     await userEvent.click(submitButton());
@@ -103,13 +103,13 @@ describe("AttackForm", () => {
   it("disables the iteration field for a single-step attack", () => {
     setup();
 
-    expect(screen.getByLabelText("Iterations")).toBeDisabled();
+    expect(screen.getByLabelText("반복 횟수")).toBeDisabled();
   });
 
   it("treats a blank sample cap as the whole split", async () => {
     const onSubmit = setup();
 
-    await userEvent.clear(screen.getByLabelText("Sample cap"));
+    await userEvent.clear(screen.getByLabelText("샘플 상한"));
     await userEvent.click(submitButton());
 
     expect(onSubmit.mock.calls[0][0].max_samples).toBeNull();
@@ -126,6 +126,6 @@ describe("AttackForm", () => {
       />,
     );
 
-    expect(screen.getByText(/No compatible model is loaded/)).toBeInTheDocument();
+    expect(screen.getByText(/호환되는 모델이 적재되지 않았습니다/)).toBeInTheDocument();
   });
 });

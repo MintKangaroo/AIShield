@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 export function Dialog({
   children,
   description,
-  kicker = "New evidence",
+  kicker = "새 증거",
   onClose,
   title,
 }: {
@@ -31,7 +31,7 @@ export function Dialog({
             <h2 id="dialog-title">{title}</h2>
             <p>{description}</p>
           </div>
-          <button aria-label="Close dialog" className="icon-button" type="button" onClick={onClose}>
+          <button aria-label="대화상자 닫기" className="icon-button" type="button" onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>

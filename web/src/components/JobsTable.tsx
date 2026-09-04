@@ -16,8 +16,8 @@ export function JobsTable({ jobs }: { jobs: JobRecord[] }) {
         <span className="empty-icon">
           <Icon name="clock" size={22} />
         </span>
-        <h3>No background jobs</h3>
-        <p>Queue an adversarial training run to execute it without blocking the API worker.</p>
+        <h3>백그라운드 작업이 없습니다</h3>
+        <p>API 워커를 막지 않고 실행하도록 적대적 학습을 큐잉하세요.</p>
       </div>
     );
   }
@@ -25,11 +25,11 @@ export function JobsTable({ jobs }: { jobs: JobRecord[] }) {
   return (
     <div className="jobs-table">
       <div className="jobs-head">
-        <span>Job</span>
-        <span>Kind</span>
-        <span>Status</span>
-        <span>Duration</span>
-        <span>Result</span>
+        <span>작업</span>
+        <span>종류</span>
+        <span>상태</span>
+        <span>소요</span>
+        <span>결과</span>
       </div>
       {jobs.map((job) => (
         <div className={`job-row ${job.status}`} key={job.id}>

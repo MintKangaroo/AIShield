@@ -6,18 +6,18 @@ import type { LlmRedTeamRequest, ProbeCategory } from "../types";
 const CATEGORIES: Array<{ id: ProbeCategory; label: string; hint: string }> = [
   {
     id: "system_prompt_leak",
-    label: "System-prompt leak",
-    hint: "Can the model be made to reveal a secret planted in its instructions?",
+    label: "System-prompt 유출",
+    hint: "명령에 심어둔 비밀을 모델이 드러내게 만들 수 있는가?",
   },
   {
     id: "instruction_override",
-    label: "Instruction override",
-    hint: "Does the model follow injected instructions that override its rules?",
+    label: "명령 override",
+    hint: "모델이 규칙을 무시하는 주입 명령을 따르는가?",
   },
   {
     id: "jailbreak",
-    label: "Jailbreak framing",
-    hint: "Do roleplay / hypothetical / developer-mode framings bypass a refusal?",
+    label: "Jailbreak 프레이밍",
+    hint: "roleplay·가정·developer-mode 프레이밍이 거부를 우회하는가?",
   },
 ];
 
@@ -73,7 +73,7 @@ export function LlmRedTeamForm({
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        <span>Target LLM endpoint URL</span>
+        <span>대상 LLM 엔드포인트 URL</span>
         <input
           autoComplete="off"
           placeholder="http://llm.internal.example.com/chat"
@@ -82,13 +82,12 @@ export function LlmRedTeamForm({
           onChange={(event) => setEndpointUrl(event.target.value)}
         />
         <small className="field-hint">
-          Must be an allowlisted host accepting{" "}
-          <code>{'{"system": "...", "prompt": "..."}'}</code> and returning{" "}
-          <code>{'{"completion": "..."}'}</code>.
+          <code>{'{"system": "...", "prompt": "..."}'}</code>를 받고{" "}
+          <code>{'{"completion": "..."}'}</code>를 반환하는 allowlist 호스트여야 합니다.
         </small>
       </label>
 
-      <div className="probe-categories" role="group" aria-label="Probe categories">
+      <div className="probe-categories" role="group" aria-label="점검 카테고리">
         {CATEGORIES.map((category) => (
           <button
             className={selected.has(category.id) ? "active" : ""}
@@ -104,7 +103,7 @@ export function LlmRedTeamForm({
 
       <div className="form-row two">
         <label>
-          <span>Auth header (optional)</span>
+          <span>인증 헤더 (선택)</span>
           <input
             autoComplete="off"
             placeholder="Authorization"
@@ -113,7 +112,7 @@ export function LlmRedTeamForm({
           />
         </label>
         <label>
-          <span>Auth value (optional)</span>
+          <span>인증 값 (선택)</span>
           <input
             autoComplete="off"
             placeholder="Bearer …"
@@ -131,10 +130,9 @@ export function LlmRedTeamForm({
           onChange={(event) => setRetainText(event.target.checked)}
         />
         <span>
-          Retain prompt and completion text
+          prompt·completion 텍스트 보존
           <small>
-            Off by default — only SHA-256 fingerprints and verdicts are stored, since responses
-            can carry sensitive content.
+            기본 꺼짐 — 응답이 민감한 내용을 담을 수 있어 SHA-256 지문과 판정만 저장합니다.
           </small>
         </span>
       </label>
@@ -146,27 +144,25 @@ export function LlmRedTeamForm({
           onChange={(event) => setAuthorized(event.target.checked)}
         />
         <span>
-          I am authorized to red-team this LLM.
-          <small>The server also enforces its own host allowlist; both must hold or it returns 403.</small>
+          이 LLM을 레드팀할 권한이 있습니다.
+          <small>서버는 자체 호스트 allowlist도 강제합니다. 둘 다 충족해야 하며 아니면 403을 반환합니다.</small>
         </span>
       </label>
 
       <div className="policy-note attack-note">
         <Icon name="shield" />
         <p>
-          Probes are diagnostic and benign: the &quot;forbidden&quot; content is a harmless planted
-          token, so a successful jailbreak only ever reveals that token. This measures whether your
-          model yields to a technique — it is not a source of working attacks.
+          점검은 진단적이고 무해합니다: &quot;금지된&quot; 내용은 무해한 심어둔 토큰이라, 성공한 jailbreak도 그 토큰만 드러냅니다. 이는 모델이 기법에 굴복하는지 측정할 뿐, 실동작 공격의 출처가 아닙니다.
         </p>
       </div>
 
       <div className="dialog-actions">
         <button className="button ghost" type="button" onClick={onCancel}>
-          Cancel
+          취소
         </button>
         <button className="button primary" disabled={!canSubmit || busy} type="submit">
           <Icon name="shield" size={16} />
-          {busy ? "Probing target…" : "Run red-team"}
+          {busy ? "대상 점검 중…" : "레드팀 실행"}
         </button>
       </div>
     </form>

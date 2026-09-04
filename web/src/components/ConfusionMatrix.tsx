@@ -8,7 +8,7 @@ export function ConfusionMatrix({ run }: { run: BaselineRunRecord | null }) {
     return (
       <div className="matrix-empty">
         <Icon name="grid" size={24} />
-        <span>Run a baseline to generate the matrix</span>
+        <span>행렬을 생성하려면 베이스라인을 실행하세요</span>
       </div>
     );
   }
@@ -17,9 +17,9 @@ export function ConfusionMatrix({ run }: { run: BaselineRunRecord | null }) {
   const maximum = Math.max(...matrix.flat(), 1);
   return (
     <div className="matrix-wrap">
-      <div className="matrix-y-label">Actual class</div>
+      <div className="matrix-y-label">실제 클래스</div>
       <div
-        aria-label="Confusion matrix"
+        aria-label="혼동 행렬"
         className="matrix"
         role="img"
         style={{ gridTemplateColumns: `repeat(${matrix.length}, minmax(0, 1fr))` }}
@@ -37,7 +37,7 @@ export function ConfusionMatrix({ run }: { run: BaselineRunRecord | null }) {
           )),
         )}
       </div>
-      <div className="matrix-x-label">Predicted class</div>
+      <div className="matrix-x-label">예측 클래스</div>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export function TransferTable({
         <span className="empty-icon transfer">
           <Icon name="transfer" size={22} />
         </span>
-        <h3>No black-box transfer evidence yet</h3>
+        <h3>아직 블랙박스 전이 증거가 없습니다</h3>
         <p>
           Generate perturbations on a surrogate model and measure how many survive against a
           different target model.
@@ -29,12 +29,12 @@ export function TransferTable({
   return (
     <div className="transfer-table">
       <div className="transfer-head">
-        <span>Transfer</span>
+        <span>전이</span>
         <span>Surrogate → target</span>
-        <span>Clean</span>
-        <span>Transferred robust</span>
-        <span>Transfer success</span>
-        <span>Bound</span>
+        <span>clean</span>
+        <span>전이 robust</span>
+        <span>전이 성공</span>
+        <span>경계</span>
       </div>
       {transfers.map((transfer, index) => {
         const dataset = datasets.find((item) => item.id === transfer.dataset_id);
@@ -55,7 +55,7 @@ export function TransferTable({
               <b>
                 {surrogate?.architecture ?? "Unknown"} → {target?.architecture ?? "Unknown"}
               </b>
-              <small>{dataset?.name.toUpperCase() ?? "Unknown dataset"}</small>
+              <small>{dataset?.name.toUpperCase() ?? "알 수 없는 데이터셋"}</small>
             </span>
             <span className="mono">{formatPercent(transfer.metrics.clean_accuracy)}</span>
             <strong className="robust-value">

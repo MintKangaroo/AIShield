@@ -42,11 +42,11 @@ export function RunsPage({
       <section className="panel runs-panel">
         <div className="panel-heading">
           <div>
-            <span className="kicker">All evidence</span>
+            <span className="kicker">전체 증거</span>
             <h3>{baselines.length} completed baselines</h3>
           </div>
           <button className="button secondary compact" type="button" onClick={onOpenBaseline}>
-            <Icon name="plus" size={15} /> New run
+            <Icon name="plus" size={15} /> 새 실행
           </button>
         </div>
         <RunsTable
@@ -63,11 +63,11 @@ export function RunsPage({
           <>
             <div className="inspector-top">
               <span className="sealed large">
-                <Icon name="check" size={14} /> Evidence sealed
+                <Icon name="check" size={14} /> 증거 봉인됨
               </span>
               <span className="mono faint">{formatDate(selectedRun.created_at)}</span>
             </div>
-            <h2>{selectedModel?.architecture ?? "Model baseline"}</h2>
+            <h2>{selectedModel?.architecture ?? "모델 베이스라인"}</h2>
             <p>
               {selectedDataset?.name.toUpperCase()} / {selectedDataset?.split} · seed{" "}
               {selectedRun.config.seed}
@@ -78,38 +78,38 @@ export function RunsPage({
             >
               <div>
                 <strong>{formatPercent(selectedRun.metrics.clean_accuracy)}</strong>
-                <span>clean accuracy</span>
+                <span>clean 정확도</span>
               </div>
             </div>
             <div className="metric-pairs">
               <span>
-                <small>Mean loss</small>
+                <small>평균 손실</small>
                 <b>{selectedRun.metrics.mean_loss.toFixed(4)}</b>
               </span>
               <span>
-                <small>Latency / sample</small>
+                <small>샘플당 지연</small>
                 <b>{selectedRun.metrics.latency.mean_ms_per_sample.toFixed(2)} ms</b>
               </span>
               <span>
-                <small>Samples</small>
+                <small>샘플 수</small>
                 <b>{selectedRun.metrics.evaluated_samples.toLocaleString()}</b>
               </span>
               <span>
-                <small>Artifacts</small>
+                <small>아티팩트</small>
                 <b>{selectedRun.artifacts.length}</b>
               </span>
             </div>
             <div className="hash-stack">
               <span>
-                <small>Model state</small>
+                <small>모델 state</small>
                 <code>{shortHash(selectedRun.model_state_sha256)}</code>
               </span>
               <span>
-                <small>Dataset manifest</small>
+                <small>데이터셋 manifest</small>
                 <code>{shortHash(selectedRun.dataset_manifest_sha256)}</code>
               </span>
               <span>
-                <small>Predictions</small>
+                <small>예측</small>
                 <code>{shortHash(selectedRun.metrics.prediction_sha256)}</code>
               </span>
             </div>
@@ -118,7 +118,7 @@ export function RunsPage({
                 <Icon name={verification.reproducible ? "check" : "close"} />
                 <span>
                   <strong>
-                    {verification.reproducible ? "Reproduction passed" : "Mismatch detected"}
+                    {verification.reproducible ? "재현 통과" : "불일치 감지"}
                   </strong>
                   {verification.checks.filter((check) => check.passed).length}/
                   {verification.checks.length} deterministic checks passed
@@ -132,7 +132,7 @@ export function RunsPage({
               onClick={() => onVerify(selectedRun)}
             >
               <Icon name="refresh" size={16} />
-              {busy ? "Replaying exact run…" : "Verify exact rerun"}
+              {busy ? "동일 실행 재생 중…" : "동일 재실행 검증"}
             </button>
             <button
               className="button secondary full"
@@ -141,17 +141,17 @@ export function RunsPage({
               onClick={() => void onExport(selectedRun.id)}
             >
               <Icon name="download" size={16} />
-              Export experiment envelope
+              실험 envelope 내보내기
             </button>
             <small className="inspector-footnote">
-              Wall-clock latency is recorded but excluded from pass/fail.
+              실측 지연은 기록하되 합격/불합격에서는 제외합니다.
             </small>
           </>
         ) : (
           <div className="empty-panel compact-empty">
             <Icon name="activity" size={24} />
-            <h3>Select a baseline</h3>
-            <p>Run evidence will appear here.</p>
+            <h3>베이스라인 선택</h3>
+            <p>실행 증거가 여기에 표시됩니다.</p>
           </div>
         )}
       </aside>

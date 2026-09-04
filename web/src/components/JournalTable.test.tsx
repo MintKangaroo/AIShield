@@ -16,7 +16,7 @@ describe("JournalTable", () => {
   it("explains the journal instead of rendering an empty grid", () => {
     render(<JournalTable entries={[]} />);
 
-    expect(screen.getByText(/metadata journal is empty/i)).toBeInTheDocument();
+    expect(screen.getByText(/메타데이터 저널이 비어 있습니다/)).toBeInTheDocument();
   });
 
   it("counts each record kind in the filter row", () => {

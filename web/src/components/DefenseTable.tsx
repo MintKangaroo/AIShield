@@ -21,10 +21,9 @@ export function DefenseTable({
         <span className="empty-icon defense">
           <Icon name="shield" size={22} />
         </span>
-        <h3>No defense evidence yet</h3>
+        <h3>아직 방어 증거가 없습니다</h3>
         <p>
-          Run a bit-depth preprocessing defense to compare before, after, and adaptive metrics on
-          one identical sample population.
+          비트 심도 전처리 방어를 실행해 동일한 샘플 집단에서 전·후·적응 지표를 비교하세요.
         </p>
       </div>
     );
@@ -33,12 +32,12 @@ export function DefenseTable({
   return (
     <div className="defense-table">
       <div className="defense-head">
-        <span>Defense</span>
-        <span>Target</span>
-        <span>Robust before</span>
-        <span>Robust after</span>
+        <span>방어</span>
+        <span>대상</span>
+        <span>robust 전</span>
+        <span>robust 후</span>
         <span>Δ</span>
-        <span>Adaptive</span>
+        <span>적응</span>
         <span />
       </div>
       {defenses.map((defense, index) => {
@@ -61,9 +60,9 @@ export function DefenseTable({
               </span>
             </span>
             <span className="target-cell">
-              <b>{model?.architecture ?? "Unknown model"}</b>
+              <b>{model?.architecture ?? "알 수 없는 모델"}</b>
               <small>
-                {dataset?.name.toUpperCase() ?? "Unknown dataset"} ·{" "}
+                {dataset?.name.toUpperCase() ?? "알 수 없는 데이터셋"} ·{" "}
                 {defense.attack_algorithm.toUpperCase()}
               </small>
             </span>
@@ -74,7 +73,7 @@ export function DefenseTable({
             </span>
             <span
               className={`gradient-chip ${defense.metrics.adaptive_gradient_status}`}
-              title="Adaptive attack gradient health through the preprocessing defense"
+              title="전처리 방어를 통과한 적응 공격의 그래디언트 상태"
             >
               {defense.metrics.adaptive_gradient_status}
             </span>

@@ -22,13 +22,13 @@ export function StrengthCurve({ runs }: { runs: AttackRunRecord[] }) {
     <div className="curve-card">
       <div className="panel-heading">
         <div>
-          <span className="kicker">Strength curve</span>
-          <h3>{points[0].config.algorithm.toUpperCase()} robust accuracy</h3>
+          <span className="kicker">강도 곡선</span>
+          <h3>{points[0].config.algorithm.toUpperCase()} robust 정확도</h3>
         </div>
         <span className="mono faint">{points.length} evidence points</span>
       </div>
       <svg
-        aria-label="Robust accuracy by epsilon"
+        aria-label="엡실론별 robust 정확도"
         className="curve-chart"
         role="img"
         viewBox={`0 0 ${width} ${height}`}
@@ -42,7 +42,7 @@ export function StrengthCurve({ runs }: { runs: AttackRunRecord[] }) {
         ))}
       </svg>
       <div className="curve-legend">
-        <span>robust accuracy</span>
+        <span>robust 정확도</span>
         <span>
           ε {minEpsilon.toFixed(3)} → {maxEpsilon.toFixed(3)}
         </span>
