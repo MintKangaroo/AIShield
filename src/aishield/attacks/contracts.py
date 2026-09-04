@@ -103,3 +103,59 @@ class AttackRunRecord(RegistryModel):
     environment: BaselineEnvironment
     metrics: AttackMetrics
     warnings: tuple[str, ...] = ()
+
+
+class RemoteAttackConfig(RegistryModel):
+    """Bounded query-based black-box attack against a remote endpoint."""
+
+    algorithm: Literal["square"] = "square"
+    norm: Literal["linf"] = "linf"
+    epsilon: float = Field(gt=0.0, le=1.0)
+    max_queries: int = Field(gt=0, le=100_000)
+    seed: int = Field(ge=0, le=4_294_967_295)
+    batch_size: int = Field(gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
+
+
+class RemoteAttackMetrics(RegistryModel):
+    """Paired clean/adversarial metrics plus the real query cost of the attack."""
+
+    clean_accuracy: Probability
+    robust_accuracy: Probability
+    attack_success_rate: Probability
+    evaluated_samples: int = Field(gt=0)
+    clean_correct_samples: int = Field(ge=0)
+    successful_attacks: int = Field(ge=0)
+    maximum_observed_linf: float = Field(ge=0.0, le=1.0)
+    total_queries: int = Field(ge=0)
+    clean_prediction_sha256: Sha256
+    adversarial_prediction_sha256: Sha256
+
+    @model_validator(mode="after")
+    def validate_counts(self) -> Self:
+        if self.clean_correct_samples > self.evaluated_samples:
+            raise ValueError("clean-correct samples cannot exceed evaluated samples")
+        if self.successful_attacks > self.clean_correct_samples:
+            raise ValueError("successful attacks cannot exceed clean-correct samples")
+        return self
+
+
+class RemoteAttackRunRecord(RegistryModel):
+    """Evidence for one authorized black-box attack on a remote model.
+
+    The target is identified by host and a configuration fingerprint rather than a
+    weight hash — a remote model exposes no state to hash. Secrets (auth headers,
+    query strings) are never part of the record.
+    """
+
+    id: UUID
+    created_at: AwareDatetime
+    target_host: str = Field(min_length=1)
+    target_fingerprint: Sha256
+    dataset_id: UUID
+    dataset_manifest_sha256: Sha256
+    config: RemoteAttackConfig
+    environment: BaselineEnvironment
+    metrics: RemoteAttackMetrics
+    authorized: Literal[True]
+    warnings: tuple[str, ...] = ()

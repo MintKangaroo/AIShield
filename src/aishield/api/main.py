@@ -12,6 +12,7 @@ from aishield import __version__
 from aishield.api.middleware import RequestContextMiddleware
 from aishield.api.routes.health import router as health_router
 from aishield.api.routes.registry import router as registry_router
+from aishield.api.security import API_KEY_HEADER, ApiKeyDependency
 from aishield.core.config import Settings, get_settings
 from aishield.core.logging import configure_logging
 from aishield.registry.service import RegistryService
@@ -69,11 +70,13 @@ def create_app(
         allow_origins=runtime_settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID", API_KEY_HEADER],
         expose_headers=["X-Request-ID"],
     )
     application.include_router(health_router, prefix="/api/v1")
-    application.include_router(registry_router, prefix="/api/v1")
+    # Applied to the router, so a new route is protected by default rather than
+    # by remembering to decorate it.
+    application.include_router(registry_router, prefix="/api/v1", dependencies=[ApiKeyDependency])
 
     @application.get("/api/v1", response_model=ServiceMetadata, tags=["system"])
     def metadata() -> ServiceMetadata:

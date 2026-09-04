@@ -7,7 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from aishield.attacks.contracts import AttackAlgorithm, AttackConfig, AttackRunRecord
+from aishield.attacks.contracts import (
+    AttackAlgorithm,
+    AttackConfig,
+    AttackRunRecord,
+    RemoteAttackConfig,
+    RemoteAttackRunRecord,
+)
+from aishield.attacks.remote import RemoteEndpoint
 from aishield.defenses.contracts import (
     DefenseConfig,
     DefenseKind,
@@ -29,6 +36,7 @@ from aishield.registry.contracts import (
     ModelVersionRecord,
 )
 from aishield.registry.errors import (
+    RegistryAuthorizationError,
     RegistryBusyError,
     RegistryError,
     RegistryNotFoundError,
@@ -187,6 +195,25 @@ class TransferEvaluationRequest(RequestModel):
     max_samples: int | None = Field(default=None, gt=0, le=100_000)
 
 
+class RemoteAttackRequest(RequestModel):
+    """Run an authorized black-box attack against a remote image classifier."""
+
+    endpoint_url: str = Field(min_length=1, max_length=2048)
+    num_classes: int = Field(gt=1, le=100_000)
+    dataset_id: UUID
+    # The operator must state, per request, that they are authorized to test this
+    # target. It is deliberately not defaulted to true.
+    authorized: bool = False
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=1.0)
+    max_queries: int = Field(default=5_000, gt=0, le=100_000)
+    seed: int = Field(default=1729, ge=0, le=4_294_967_295)
+    batch_size: int = Field(default=64, gt=0, le=4096)
+    max_samples: int | None = Field(default=None, gt=0, le=100_000)
+    timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
+    auth_header: str | None = Field(default=None, max_length=128)
+    auth_value: str | None = Field(default=None, max_length=4096)
+
+
 def get_registry(request: Request) -> RegistryService:
     """Resolve the process-local registry from application state."""
 
@@ -199,6 +226,9 @@ RegistryDependency = Annotated[RegistryService, Depends(get_registry)]
 def _translate_registry_error(error: Exception) -> HTTPException:
     if isinstance(error, RegistryNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+    if isinstance(error, RegistryAuthorizationError):
+        # The caller is authenticated but the target is not authorized for testing.
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error))
     if isinstance(error, RegistryBusyError):
         # The request is valid; the machine is saturated. Invite a retry.
         return HTTPException(
@@ -584,6 +614,54 @@ def run_transfer(
 )
 def list_transfers(registry: RegistryDependency) -> list[TransferDefenseRunRecord]:
     return registry.list_transfers()
+
+
+@router.post(
+    "/remote-attacks",
+    response_model=RemoteAttackRunRecord,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run an authorized black-box attack against a remote endpoint",
+)
+def run_remote_attack(
+    payload: RemoteAttackRequest, registry: RegistryDependency
+) -> RemoteAttackRunRecord:
+    endpoint = RemoteEndpoint(
+        url=payload.endpoint_url,
+        num_classes=payload.num_classes,
+        timeout_seconds=payload.timeout_seconds,
+        auth_header=payload.auth_header,
+        auth_value=payload.auth_value,
+    )
+    try:
+        return registry.run_remote_attack(
+            payload.dataset_id,
+            endpoint,
+            config=RemoteAttackConfig(
+                epsilon=payload.epsilon,
+                max_queries=payload.max_queries,
+                seed=payload.seed,
+                batch_size=payload.batch_size,
+                max_samples=payload.max_samples,
+            ),
+            authorized=payload.authorized,
+        )
+    except (
+        RegistryAuthorizationError,
+        RegistryBusyError,
+        RegistryError,
+        RegistryNotFoundError,
+        ValueError,
+    ) as error:
+        raise _translate_registry_error(error) from error
+
+
+@router.get(
+    "/remote-attacks",
+    response_model=list[RemoteAttackRunRecord],
+    summary="List authorized remote black-box attack runs",
+)
+def list_remote_attacks(registry: RegistryDependency) -> list[RemoteAttackRunRecord]:
+    return registry.list_remote_attacks()
 
 
 @router.post(

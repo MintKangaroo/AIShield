@@ -31,6 +31,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/defenses` | Before/after preprocessing-defense evaluation |
 | `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
 | `POST` | `/api/v1/registry/defenses/transfer` | Surrogate-to-target transfer evaluation |
+| `POST / GET` | `/api/v1/registry/remote-attacks` | Authorized query-only black-box attack on a remote endpoint / list |
 | `GET` | `/api/v1/registry/defenses/transfer` | Transfer evaluation list |
 | `POST` | `/api/v1/registry/robustness-score` | Transparent aggregate over attack evidence |
 | `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |
@@ -192,6 +193,105 @@ Job 상태 전이는 두 프로세스가 각각 자신이 관찰한 것을 metad
 ```bash
 AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile worker up --build
+```
+
+## Remote black-box attacks (real deployed models)
+
+White-box attacks (FGSM/PGD/…) need the model's weights and gradient. To test a
+model you do **not** own the weights of — a deployed image classifier reachable
+over HTTP — AIShield runs a **query-only black-box attack**: a bounded Square-style
+random search that sends images and reads back class scores, never a gradient.
+
+This is gated so it cannot be pointed at arbitrary hosts. Two independent checks
+must both pass:
+
+1. **Allowlist.** `AISHIELD_ATTACK_TARGETS_ALLOWLIST` lists the hostnames you are
+   authorized to test. Empty (the default) refuses every target, so the feature is
+   off until a host is named deliberately.
+2. **Per-request confirmation.** The request must set `authorized: true`, an
+   explicit statement that you may test this target. It is never defaulted to true.
+
+A target that fails either check returns **403**. The query budget is bounded by
+`AISHIELD_REMOTE_ATTACK_MAX_QUERIES`; a request asking for more is refused.
+
+The endpoint you point at must speak a small JSON contract:
+
+```
+POST <endpoint_url>
+request:  {"format": "aishield.image-scores.v1", "images": [[[[...]]]]}  # (N,C,H,W) in [0,1]
+response: {"scores": [[...]]}                                            # (N, num_classes)
+```
+
+The recorded evidence carries the same paired clean/robust/ASR metrics as a
+white-box run, plus the real query count and the maximum perturbation observed.
+The target is identified by host and a secret-free fingerprint — auth headers and
+query strings are never recorded.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/registry/remote-attacks -H 'Content-Type: application/json' -d '{
+  "endpoint_url": "http://model.internal.example.com/score",
+  "num_classes": 10, "dataset_id": "<uuid>", "authorized": true,
+  "epsilon": 0.03137, "max_queries": 5000, "max_samples": 256
+}'
+```
+
+## Authentication
+
+기본값은 **열림**입니다. `AISHIELD_API_KEY`(16자 이상)를 설정하면 `/api/v1/registry`의
+**모든** route가 키를 요구합니다. 라우터 단위로 적용하므로 새 route를 추가할 때 보호를
+빠뜨릴 수 없습니다.
+
+| 경로 | 키 필요 |
+| --- | --- |
+| `/api/v1/registry/**` | ✅ 읽기 포함 (artifact는 증거이므로) |
+| `/api/v1/health/live`, `/health/ready` | ❌ 프로브는 비밀 없이 동작해야 함 |
+| `/api/v1`, `/api/docs`, `/api/openapi.json` | ❌ 스키마만, 데이터 없음 |
+
+키는 두 header 중 하나로 보냅니다.
+
+```bash
+curl -H "X-API-Key: $AISHIELD_API_KEY" http://localhost:8000/api/v1/registry/datasets
+curl -H "Authorization: Bearer $AISHIELD_API_KEY" http://localhost:8000/api/v1/registry/datasets
+```
+
+비교는 `secrets.compare_digest`로 수행하므로 타이밍으로 키를 복원할 수 없습니다. 키는
+로그에 남지 않고 URL에 들어가지 않습니다 — query parameter로 받으면 proxy와 server 로그에
+그대로 남기 때문입니다.
+
+Dashboard는 401을 받으면 "API가 죽었다"가 아니라 **키 입력을 요청**합니다. 입력한 키는
+`sessionStorage`에만 두어 탭을 닫으면 사라집니다. Artifact와 envelope 다운로드는 header를
+실을 수 없는 `<a href>` 대신 인증된 fetch 후 blob으로 저장합니다.
+
+인증되지 않은 요청은 존재하지 않는 리소스에도 404가 아니라 401을 반환합니다. 키 없는
+호출자가 무엇이 존재하는지 알 수 없어야 하기 때문입니다.
+
+## Reproducible images
+
+모든 base image는 tag가 아니라 digest로 고정되어 있습니다. Tag는 움직이므로, 고정하지
+않으면 같은 Dockerfile을 다시 빌드해도 다른 결과가 나올 수 있습니다.
+
+빌드 시 `AISHIELD_CONTAINER_IMAGE_DIGEST`를 주입하면 그 값이 모든 evidence envelope의
+`container_image_digest`에 기록되어, 결과를 만들어낸 이미지를 역추적할 수 있습니다.
+
+```bash
+docker build -f docker/api.Dockerfile \
+  --build-arg AISHIELD_CONTAINER_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' <image>)" \
+  --build-arg AISHIELD_GIT_COMMIT="$(git rev-parse HEAD)" .
+```
+
+값이 digest 형식이 아니면 기록하지 않고 경고를 남깁니다. 잘못된 provenance는 없는 것보다
+나쁘기 때문입니다 — 재현을 시도하는 사람을 엉뚱한 이미지로 보냅니다.
+
+### CUDA worker
+
+`docker/worker.cuda.Dockerfile`은 CPU 이미지와 **같은 torch 버전**을 CUDA wheel로 설치합니다.
+결과가 device 때문에 달라질 수는 있어도 framework 버전 때문에 달라지지는 않습니다.
+`AISHIELD_COMPUTE_DEVICE=cuda`이면 CUDA를 쓸 수 없을 때 조용히 CPU로 내려가지 않고 기동에
+실패하므로, CUDA로 기록된 run은 실제로 CUDA를 사용한 것입니다.
+
+```bash
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile gpu-worker up --build
 ```
 
 ## Concurrency boundary

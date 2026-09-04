@@ -1,4 +1,3 @@
-import { api } from "../api";
 import { Icon } from "../components/Icon";
 import { formatBytes, shortHash } from "../format";
 import type { BaselineRunRecord } from "../types";
@@ -6,9 +5,11 @@ import type { BaselineRunRecord } from "../types";
 export function ArtifactsPage({
   artifactCount,
   baselines,
+  onDownload,
 }: {
   artifactCount: number;
   baselines: BaselineRunRecord[];
+  onDownload: (baselineId: string, artifactId: string, filename: string) => Promise<void>;
 }) {
   return (
     <div className="page-content">
@@ -61,13 +62,22 @@ export function ArtifactsPage({
               <span>{artifact.media_type}</span>
               <span>{formatBytes(artifact.size_bytes)}</span>
               <code>{shortHash(artifact.sha256)}</code>
-              <a
+              <button
                 aria-label={`Download ${artifact.kind}`}
                 className="download-button"
-                href={api.artifactUrl(run.id, artifact.id)}
+                type="button"
+                onClick={() =>
+                  void onDownload(
+                    run.id,
+                    artifact.id,
+                    `${artifact.kind}-${artifact.id}${
+                      artifact.media_type === "image/png" ? ".png" : ".json"
+                    }`,
+                  )
+                }
               >
                 <Icon name="download" size={16} />
-              </a>
+              </button>
             </div>
           )),
         )}

@@ -13,7 +13,14 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from aishield.attacks.contracts import AttackConfig, AttackRunRecord
+from aishield.attacks.contracts import (
+    AttackConfig,
+    AttackRunRecord,
+    RemoteAttackConfig,
+    RemoteAttackRunRecord,
+)
+from aishield.attacks.remote import RemoteEndpoint
+from aishield.attacks.remote_runner import run_remote_attack
 from aishield.attacks.runner import run_adversarial_evaluation
 from aishield.core.config import Settings
 from aishield.defenses.contracts import DefenseConfig, DefenseRunRecord, TransferDefenseRunRecord
@@ -45,6 +52,7 @@ from aishield.registry.datasets import (
     TorchvisionDatasetAdapter,
 )
 from aishield.registry.errors import (
+    RegistryAuthorizationError,
     RegistryBusyError,
     RegistryError,
     RegistryNotFoundError,
@@ -102,6 +110,7 @@ class RegistryService:
         self._attacks: dict[UUID, AttackRunRecord] = {}
         self._defenses: dict[UUID, DefenseRunRecord] = {}
         self._transfers: dict[UUID, TransferDefenseRunRecord] = {}
+        self._remote_attacks: dict[UUID, RemoteAttackRunRecord] = {}
         self._training: dict[UUID, TrainingRunRecord] = {}
         self._experiments: dict[UUID, ExperimentResult] = {}
         self._store: MetadataStore = store or build_metadata_store(settings)
@@ -415,6 +424,65 @@ class RegistryService:
             self._transfers[record.id] = record
         self._store.append("transfer", record)
         return record
+
+    def run_remote_attack(
+        self,
+        dataset_id: UUID,
+        endpoint: RemoteEndpoint,
+        *,
+        config: RemoteAttackConfig,
+        authorized: bool,
+    ) -> RemoteAttackRunRecord:
+        """Attack an authorized remote endpoint using only its query responses.
+
+        Two independent gates must both pass: the operator must confirm they are
+        authorized to test the target, and the target host must appear in the
+        configured allowlist. An empty allowlist refuses every target, so the
+        feature stays off until a host is named deliberately.
+        """
+
+        if not authorized:
+            raise RegistryAuthorizationError(
+                "remote attacks require explicit confirmation that you are authorized "
+                "to test the target"
+            )
+        allowlist = self.settings.attack_targets_allowlist
+        if not allowlist:
+            raise RegistryAuthorizationError(
+                "no attack targets are allowlisted; set AISHIELD_ATTACK_TARGETS_ALLOWLIST "
+                "to the hosts you are authorized to test"
+            )
+        if endpoint.host not in allowlist:
+            raise RegistryAuthorizationError(
+                f"target host {endpoint.host!r} is not in the configured allowlist"
+            )
+        if config.max_queries > self.settings.remote_attack_max_queries:
+            raise RegistryError(
+                f"max_queries exceeds the configured ceiling of "
+                f"{self.settings.remote_attack_max_queries}"
+            )
+
+        dataset = self.get_dataset_bundle(dataset_id)
+        with self._timed_run(
+            "remote_attack",
+            dataset_id=str(dataset_id),
+            target_host=endpoint.host,
+            epsilon=config.epsilon,
+        ) as outcome:
+            record = run_remote_attack(dataset, endpoint, config=config)
+            outcome["run_id"] = str(record.id)
+            outcome["robust_accuracy"] = record.metrics.robust_accuracy
+            outcome["total_queries"] = record.metrics.total_queries
+        with self._lock:
+            self._remote_attacks[record.id] = record
+        self._store.append("remote_attack", record)
+        return record
+
+    def list_remote_attacks(self) -> list[RemoteAttackRunRecord]:
+        """List remote black-box attack runs in deterministic ID order."""
+
+        with self._lock:
+            return [self._remote_attacks[key] for key in sorted(self._remote_attacks, key=str)]
 
     def list_transfers(self) -> list[TransferDefenseRunRecord]:
         """List transfer evaluations in deterministic ID order."""

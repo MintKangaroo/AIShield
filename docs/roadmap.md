@@ -25,6 +25,8 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ APGD/FAB/Square bounded compatibility adapters (reference parity warning)
    - ✅ epsilon strength curves and bounded multiple restarts
    - algorithm별 independent numerical fixtures
+   - ✅ query-only black-box attack against an authorized remote endpoint (real
+     deployed models, no weights) — allowlist + per-request confirmation gated
 
 8. **Defense evaluation** *(in progress)*
    - ✅ bit-depth preprocessing defense baseline with before/after/adaptive metrics
@@ -43,8 +45,10 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ PostgreSQL registry/run metadata (opt-in backend behind one shared contract)
    - ✅ readiness endpoint that checks the configured store instead of guessing
    - ✅ Redis-backed job queue and out-of-process evaluation worker
+   - ✅ CPU/CUDA worker images pinned by digest, with the deployed digest recorded
+     in every evidence envelope
    - artifact garbage-collection policy
-   - CPU/CUDA worker image digest pinning
+   - worker dead-letter handling
 
 10. **Transparent robustness score**
     - ✅ versioned public formula
@@ -59,9 +63,17 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
     - ✅ robustness score 집계 UI
     - ✅ append-only journal 감사 view
     - ✅ portable experiment export/import
-    - run-to-run comparison, sample triplets
+    - ✅ run-to-run comparison that blocks uncontrolled comparisons and flags
+      misleading deltas
+    - ✅ remote black-box attack dashboard surface
+    - sample triplets
 
-12. **Separate LLM security design**
+12. **Access control** *(in progress)*
+    - ✅ optional API key over the whole registry surface, off by default
+    - ✅ dashboard prompts for a key instead of reporting an outage
+    - per-key scopes and audit of who ran what
+
+13. **Separate LLM security design**
     - image engine과 분리된 threat/metric contract
     - prompt/response privacy controls
     - 실행 기능 전에 authorization과 benchmark policy 확정

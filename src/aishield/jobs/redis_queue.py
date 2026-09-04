@@ -85,7 +85,12 @@ class RedisJobQueue:
     # -- writes ---------------------------------------------------------------
 
     def submit(self, task: TaskDescriptor) -> JobRecord:
-        """Enqueue work for whichever worker claims it next."""
+        """Enqueue work for whichever worker claims it next.
+
+        The pending bound is read and then acted on without a transaction, so
+        simultaneous submitters can overshoot it slightly. It is back-pressure
+        against an unbounded backlog, not a hard reservation.
+        """
 
         from redis.exceptions import RedisError
 

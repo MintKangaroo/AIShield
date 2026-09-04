@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
+import { UnauthorizedError } from "../apiKey";
 import { sortByCreatedAt } from "../format";
 import type {
   AttackRunRecord,
@@ -11,11 +12,13 @@ import type {
   JobRecord,
   JournalEntry,
   ModelVersionRecord,
+  RemoteAttackRunRecord,
   TrainingRunRecord,
   TransferRunRecord,
 } from "../types";
 
-export type ApiState = "checking" | "ready" | "offline";
+/** `unauthorized` is distinct from `offline`: the API answered, it refused us. */
+export type ApiState = "checking" | "ready" | "offline" | "unauthorized";
 
 export interface RegistryData {
   health: HealthResponse | null;
@@ -25,6 +28,7 @@ export interface RegistryData {
   attacks: AttackRunRecord[];
   defenses: DefenseRunRecord[];
   transfers: TransferRunRecord[];
+  remoteAttacks: RemoteAttackRunRecord[];
   training: TrainingRunRecord[];
   jobs: JobRecord[];
   journal: JournalEntry[];
@@ -38,6 +42,7 @@ const emptyData: RegistryData = {
   attacks: [],
   defenses: [],
   transfers: [],
+  remoteAttacks: [],
   training: [],
   jobs: [],
   journal: [],
@@ -66,6 +71,7 @@ export function useRegistry() {
         attacks,
         defenses,
         transfers,
+        remoteAttacks,
         training,
         jobs,
         journal,
@@ -76,6 +82,7 @@ export function useRegistry() {
         api.attacks(),
         api.defenses(),
         api.transfers(),
+        api.remoteAttacks(),
         api.training(),
         api.jobs(),
         api.journal(),
@@ -88,13 +95,14 @@ export function useRegistry() {
         attacks: sortByCreatedAt(attacks),
         defenses: sortByCreatedAt(defenses),
         transfers: sortByCreatedAt(transfers),
+        remoteAttacks: sortByCreatedAt(remoteAttacks),
         training: sortByCreatedAt(training),
         jobs: sortByCreatedAt(jobs),
         journal,
       });
       setApiState("ready");
-    } catch {
-      setApiState("offline");
+    } catch (error) {
+      setApiState(error instanceof UnauthorizedError ? "unauthorized" : "offline");
     } finally {
       inFlight.current = false;
       setRefreshing(false);

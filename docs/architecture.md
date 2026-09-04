@@ -31,12 +31,14 @@ PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADA
 
 ## Package boundaries
 
-- `aishield.api` — HTTP transport, strict request model, error translation, OpenAPI.
+- `aishield.api` — HTTP transport, strict request model, error translation, OpenAPI,
+  and the optional API key applied at the registry router.
 - `aishield.core` — validated immutable runtime settings.
 - `aishield.registry` — adapter allowlist, runtime handle, safe checkpoint, hash, orchestration.
 - `aishield.evaluation` — clean metric, latency, environment capture, artifact rendering,
   exact-config verification.
-- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner.
+- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner,
+  그리고 가중치 없이 score만으로 배포 모델을 공격하는 query-only black-box(Square) + 원격 HTTP 클라이언트.
 - `aishield.schemas` — portable versioned experiment exchange contract.
 - `aishield.jobs` — job status contract, serializable task descriptors, and the
   in-process and Redis backends behind one protocol.
@@ -139,7 +141,13 @@ compatibility and [0,1] validation
 
 ## Compute profiles
 
-CPU가 기본이며 Docker image는 PyTorch/torchvision CPU wheel을 pin합니다. Compose
-`gpu-check` profile은 NVIDIA Container Toolkit 접근만 확인합니다. CUDA evaluation
-worker는 dependency/image digest, scheduling, resource isolation이 구현된 뒤 별도 profile로
-추가합니다.
+CPU가 기본이며 Docker image는 PyTorch/torchvision CPU wheel을 pin합니다. 모든 base image는
+tag가 아니라 digest로 고정합니다.
+
+CUDA evaluation worker는 `gpu-worker` profile로 제공합니다. CPU 이미지와 같은 torch 버전을
+CUDA wheel로 설치하므로 결과가 framework 버전 때문에 달라지지 않으며,
+`AISHIELD_COMPUTE_DEVICE=cuda`는 CUDA를 쓸 수 없을 때 조용히 CPU로 내려가지 않고 기동에
+실패합니다. Compose `gpu-check` profile은 NVIDIA Container Toolkit 접근만 확인합니다.
+
+빌드 시 주입한 `AISHIELD_CONTAINER_IMAGE_DIGEST`는 모든 evidence envelope에 기록됩니다.
+digest 형식이 아닌 값은 기록하지 않고 경고를 남깁니다.

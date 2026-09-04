@@ -11,3 +11,7 @@ class RegistryNotFoundError(LookupError):
 
 class RegistryBusyError(RuntimeError):
     """Raised when every bounded evaluation slot is already occupied."""
+
+
+class RegistryAuthorizationError(RuntimeError):
+    """Raised when an attack target is not authorized for testing."""

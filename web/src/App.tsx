@@ -1,19 +1,24 @@
 import { useEffect, useState } from "react";
 
 import { api } from "./api";
+import { clearApiKey, writeApiKey } from "./apiKey";
 import { Dialog } from "./components/Dialog";
 import { Icon, type IconName } from "./components/Icon";
+import { ApiKeyForm } from "./forms/ApiKeyForm";
 import { AttackForm } from "./forms/AttackForm";
 import { BaselineForm } from "./forms/BaselineForm";
 import { DatasetForm } from "./forms/DatasetForm";
 import { DefenseForm } from "./forms/DefenseForm";
 import { ModelForm } from "./forms/ModelForm";
+import { RemoteAttackForm } from "./forms/RemoteAttackForm";
 import { TrainingForm } from "./forms/TrainingForm";
 import { TransferForm } from "./forms/TransferForm";
 import { useRegistry } from "./hooks/useRegistry";
 import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { AttacksPage } from "./pages/AttacksPage";
 import { DefensesPage } from "./pages/DefensesPage";
+import { ComparePage } from "./pages/ComparePage";
+import { RemoteAttacksPage } from "./pages/RemoteAttacksPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JournalPage } from "./pages/JournalPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -28,6 +33,7 @@ import type {
   DatasetRecord,
   DefenseRequest,
   JournalReplaySummary,
+  RemoteAttackRequest,
   RobustnessScore,
   TrainingRequest,
   TransferRequest,
@@ -38,9 +44,11 @@ type Page =
   | "runs"
   | "attacks"
   | "defenses"
+  | "remote"
   | "jobs"
   | "registry"
   | "artifacts"
+  | "compare"
   | "journal";
 
 type DialogName =
@@ -51,6 +59,8 @@ type DialogName =
   | "defense"
   | "transfer"
   | "training"
+  | "remote-attack"
+  | "api-key"
   | null;
 
 interface Toast {
@@ -80,6 +90,12 @@ const pageCopy: Record<Page, { eyebrow: string; title: string; description: stri
     description:
       "Measure a preprocessing defense before, after, and under a defense-aware adaptive attack.",
   },
+  remote: {
+    eyebrow: "Black-box laboratory",
+    title: "Remote model attacks",
+    description:
+      "Query an authorized deployed classifier with images and read only its scores.",
+  },
   jobs: {
     eyebrow: "Execution queue",
     title: "Jobs & training",
@@ -94,6 +110,11 @@ const pageCopy: Record<Page, { eyebrow: string; title: string; description: stri
     eyebrow: "Evidence vault",
     title: "Generated artifacts",
     description: "Download machine-readable reports and publication-ready matrices.",
+  },
+  compare: {
+    eyebrow: "Run-to-run",
+    title: "Compare runs",
+    description: "Put two runs side by side, with every disqualifying difference called out.",
   },
   journal: {
     eyebrow: "Durable audit trail",
@@ -116,6 +137,7 @@ function App() {
     models,
     refresh,
     refreshing,
+    remoteAttacks,
     training,
     transfers,
   } = useRegistry();
@@ -150,6 +172,13 @@ function App() {
       setSelectedDefenseId(defenses[0].id);
     }
   }, [defenses, selectedDefenseId]);
+
+  useEffect(() => {
+    // The API answered but refused us: ask for a key instead of reporting an outage.
+    if (apiState === "unauthorized") {
+      setDialog("api-key");
+    }
+  }, [apiState]);
 
   useEffect(() => {
     if (!toast) return;
@@ -220,6 +249,19 @@ function App() {
     }, "Black-box transfer evidence recorded.");
   }
 
+  async function createRemoteAttack(payload: RemoteAttackRequest) {
+    await perform(async () => {
+      await api.runRemoteAttack(payload);
+      await refresh(true);
+      setPage("remote");
+    }, "Black-box attack completed against the remote target.");
+  }
+
+  // The remote attack needs a dataset to probe with, but no local model.
+  function openRemoteAttackDialog() {
+    setDialog(datasets.length ? "remote-attack" : "dataset");
+  }
+
   async function createTraining(payload: TrainingRequest, queued: boolean) {
     await perform(
       async () => {
@@ -255,6 +297,30 @@ function App() {
       setCurveRuns(runs);
       await refresh(true);
     }, "Attack strength curve completed.");
+  }
+
+  async function submitApiKey(key: string) {
+    writeApiKey(key);
+    setDialog(null);
+    await refresh();
+  }
+
+  async function exportExperiment(baselineId: string) {
+    await perform(
+      () => api.downloadExperiment(baselineId),
+      "Experiment envelope downloaded.",
+    );
+  }
+
+  async function downloadArtifact(
+    baselineId: string,
+    artifactId: string,
+    filename: string,
+  ) {
+    await perform(
+      () => api.downloadArtifact(baselineId, artifactId, filename),
+      "Artifact downloaded.",
+    );
   }
 
   async function replayJournal() {
@@ -372,15 +438,18 @@ function App() {
       icon: "shield",
       count: defenses.length + transfers.length,
     },
+    { id: "remote", label: "Remote attacks", icon: "transfer", count: remoteAttacks.length },
     { id: "jobs", label: "Jobs & training", icon: "clock", count: jobs.length },
     { id: "registry", label: "Registry", icon: "database", count: datasets.length + models.length },
     { id: "artifacts", label: "Artifacts", icon: "archive", count: artifactCount },
+    { id: "compare", label: "Compare", icon: "activity" },
     { id: "journal", label: "Journal", icon: "book", count: journal.length },
   ];
 
   const primaryAction: Record<string, { label: string; run: () => void }> = {
     attacks: { label: "New attack", run: () => openWithPrerequisites("attack") },
     defenses: { label: "New defense", run: () => openWithPrerequisites("defense") },
+    remote: { label: "New black-box attack", run: openRemoteAttackDialog },
     jobs: { label: "Queue training", run: () => openWithPrerequisites("training") },
   };
   const action = primaryAction[page] ?? {
@@ -458,7 +527,9 @@ function App() {
                 ? `API ${health?.version} · ${health?.compute_device.toUpperCase()}`
                 : apiState === "checking"
                   ? "Connecting"
-                  : "API offline"}
+                  : apiState === "unauthorized"
+                    ? "API key required"
+                    : "API offline"}
             </span>
             <button
               aria-label="Refresh workspace"
@@ -474,6 +545,19 @@ function App() {
             </button>
           </div>
         </header>
+
+        {apiState === "unauthorized" && (
+          <div className="offline-banner unauthorized">
+            <Icon name="shield" />
+            <span>
+              <strong>This deployment requires an API key.</strong> The server answered but
+              refused the request.
+            </span>
+            <button type="button" onClick={() => setDialog("api-key")}>
+              Enter key
+            </button>
+          </div>
+        )}
 
         {apiState === "offline" && (
           <div className="offline-banner">
@@ -521,6 +605,7 @@ function App() {
             selectedModel={selectedModel}
             selectedRun={selectedRun}
             verification={selectedRun ? verifications[selectedRun.id] : undefined}
+            onExport={exportExperiment}
             onOpenBaseline={() => openWithPrerequisites("baseline")}
             onSelectRun={setSelectedId}
             onVerify={(run) => void verify(run)}
@@ -560,6 +645,14 @@ function App() {
           />
         )}
 
+        {page === "remote" && (
+          <RemoteAttacksPage
+            datasets={datasets}
+            runs={remoteAttacks}
+            onOpenRemoteAttack={openRemoteAttackDialog}
+          />
+        )}
+
         {page === "jobs" && (
           <JobsPage
             hasPendingJob={hasPendingJob}
@@ -580,7 +673,20 @@ function App() {
         )}
 
         {page === "artifacts" && (
-          <ArtifactsPage artifactCount={artifactCount} baselines={baselines} />
+          <ArtifactsPage
+            artifactCount={artifactCount}
+            baselines={baselines}
+            onDownload={downloadArtifact}
+          />
+        )}
+
+        {page === "compare" && (
+          <ComparePage
+            attacks={attacks}
+            baselines={baselines}
+            datasets={datasets}
+            models={models}
+          />
         )}
 
         {page === "journal" && (
@@ -638,6 +744,21 @@ function App() {
           />
         </Dialog>
       )}
+      {dialog === "remote-attack" && (
+        <Dialog
+          kicker="Authorized target"
+          title="Attack a remote model"
+          description="Query-only black-box attack against a classifier you are authorized to test."
+          onClose={() => setDialog(null)}
+        >
+          <RemoteAttackForm
+            busy={busy}
+            datasets={datasets}
+            onCancel={() => setDialog(null)}
+            onSubmit={createRemoteAttack}
+          />
+        </Dialog>
+      )}
       {dialog === "transfer" && (
         <Dialog
           title="Run a black-box transfer attack"
@@ -665,6 +786,24 @@ function App() {
             models={models}
             onCancel={() => setDialog(null)}
             onSubmit={createTraining}
+          />
+        </Dialog>
+      )}
+      {dialog === "api-key" && (
+        <Dialog
+          kicker="Access"
+          title="Enter the API key"
+          description="This deployment protects the registry. The key is kept for this browser tab only."
+          onClose={() => setDialog(null)}
+        >
+          <ApiKeyForm
+            busy={busy}
+            onCancel={() => setDialog(null)}
+            onClear={() => {
+              clearApiKey();
+              void refresh();
+            }}
+            onSubmit={submitApiKey}
           />
         </Dialog>
       )}

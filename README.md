@@ -322,6 +322,8 @@ curl -fsS -X POST http://localhost:8000/api/v1/registry/attacks \
 | --- | --- | --- |
 | `GET` | `/api/v1/health/live` | process liveness와 device |
 | `GET` | `/api/v1/health/ready` | metadata store와 job broker 접근 확인 (실패 시 503) |
+| — | `/api/v1/registry/**` | `AISHIELD_API_KEY` 설정 시 전부 키 필요 |
+| `POST` | `/api/v1/registry/remote-attacks` | 인가된 원격 endpoint 대상 query-only black-box 공격 |
 | `POST / GET` | `/api/v1/registry/datasets` | dataset load / list |
 | `POST` | `/api/v1/registry/models/small-cnn` | seeded/checkpoint SmallCNN |
 | `POST` | `/api/v1/registry/models/torchvision` | allowlist torchvision model |
@@ -464,6 +466,30 @@ x_adv = clamp(x + delta, 0, 1)
 
 ## ⚙️ 설정
 
+API 인증은 기본적으로 **꺼져 있습니다**. 로컬 데모와 CI가 비밀 관리 없이 동작하도록 한
+선택이며, 운영 배포에서만 켭니다.
+
+```dotenv
+AISHIELD_API_KEY=at-least-sixteen-characters
+```
+
+설정하면 `/api/v1/registry`의 모든 route가 키를 요구합니다(읽기 포함 — artifact가 증거이기
+때문입니다). Health probe와 OpenAPI 스키마는 열린 채로 둡니다. 키는 `X-API-Key` header
+또는 `Authorization: Bearer`로 보냅니다. Dashboard는 401을 받으면 키 입력을 요청하고,
+입력한 키는 탭이 닫히면 사라집니다.
+
+### 실제 배포 모델 대상 black-box 공격
+
+White-box 공격(FGSM/PGD 등)은 모델 가중치와 gradient가 필요합니다. **가중치를 갖고 있지
+않은** — HTTP로 배포된 이미지 분류기를 테스트하려면, AIShield는 **query-only black-box
+공격**(bounded Square 탐색)을 수행합니다. 이미지를 보내고 class score만 받아 gradient 없이
+공격합니다.
+
+임의 호스트 공격을 막기 위해 두 관문을 모두 통과해야 합니다: `AISHIELD_ATTACK_TARGETS_ALLOWLIST`에
+등록된 호스트여야 하고(비어 있으면 전부 거부), 요청마다 `authorized: true`를 명시해야 합니다.
+둘 중 하나라도 실패하면 403입니다. `POST /api/v1/registry/remote-attacks`로 실행하며, 기록에는
+paired clean/robust/ASR와 함께 실제 query 수가 남습니다. 자세한 계약은 `docs/api.md` 참고.
+
 공개 dataset과 pretrained weight 다운로드는 기본적으로 꺼져 있습니다.
 
 ```dotenv
@@ -541,8 +567,21 @@ AISHIELD_LOG_LEVEL=INFO
 docker compose --profile gpu run --rm gpu-check
 ```
 
-기본 API image는 재현 가능한 CPU 실행입니다. `gpu-check` profile은 GPU 접근만 확인하며
-API를 CUDA worker로 전환하지 않습니다.
+기본 API image는 재현 가능한 CPU 실행입니다. `gpu-check` profile은 GPU 접근만 확인합니다.
+실제 CUDA 평가는 별도 worker image로 실행합니다.
+
+```bash
+AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
+  docker compose --profile gpu-worker up --build
+```
+
+CUDA worker는 CPU 이미지와 같은 torch 버전을 CUDA wheel로 설치하므로, 결과가 device 때문에
+달라질 수는 있어도 framework 버전 때문에 달라지지는 않습니다. `AISHIELD_COMPUTE_DEVICE=cuda`는
+CUDA를 쓸 수 없으면 조용히 CPU로 내려가지 않고 기동에 실패합니다.
+
+모든 base image는 tag가 아니라 digest로 고정되어 있습니다. 빌드 시
+`AISHIELD_CONTAINER_IMAGE_DIGEST`를 주입하면 모든 evidence envelope에 기록되어 결과를
+만들어낸 이미지를 역추적할 수 있습니다.
 
 ## 🧪 개발과 검증
 
@@ -571,7 +610,7 @@ docker compose config --quiet
 
 - Ruff lint + format
 - mypy `strict = true`
-- pytest 183개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
+- pytest 255개와 line coverage 90% gate (PostgreSQL/Redis 테스트는
   `AISHIELD_TEST_DATABASE_URL`·`AISHIELD_TEST_REDIS_URL`이 설정된 경우에만 실행되고,
   없으면 skip합니다)
 - 생성된 JSON Schema drift check

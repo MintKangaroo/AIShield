@@ -400,3 +400,51 @@ export interface ExperimentResult {
   robustness_score: { version: string; value: number } | null;
   [key: string]: unknown;
 }
+
+export interface RemoteAttackRunRecord {
+  id: string;
+  created_at: string;
+  target_host: string;
+  target_fingerprint: string;
+  dataset_id: string;
+  dataset_manifest_sha256: string;
+  config: {
+    algorithm: "square";
+    norm: "linf";
+    epsilon: number;
+    max_queries: number;
+    seed: number;
+    batch_size: number;
+    max_samples: number | null;
+  };
+  environment: BaselineRunRecord["environment"];
+  metrics: {
+    clean_accuracy: number;
+    robust_accuracy: number;
+    attack_success_rate: number;
+    evaluated_samples: number;
+    clean_correct_samples: number;
+    successful_attacks: number;
+    maximum_observed_linf: number;
+    total_queries: number;
+    clean_prediction_sha256: string;
+    adversarial_prediction_sha256: string;
+  };
+  authorized: true;
+  warnings: string[];
+}
+
+export interface RemoteAttackRequest {
+  endpoint_url: string;
+  num_classes: number;
+  dataset_id: string;
+  authorized: boolean;
+  epsilon: number;
+  max_queries: number;
+  seed: number;
+  batch_size: number;
+  max_samples: number | null;
+  timeout_seconds?: number;
+  auth_header?: string | null;
+  auth_value?: string | null;
+}

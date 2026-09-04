@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 
-import { api } from "../api";
 import { Icon } from "../components/Icon";
 import { RunsTable } from "../components/RunsTable";
 import { formatDate, formatPercent, shortHash } from "../format";
@@ -16,6 +15,7 @@ export function RunsPage({
   busy,
   datasets,
   models,
+  onExport,
   onOpenBaseline,
   onSelectRun,
   onVerify,
@@ -28,6 +28,7 @@ export function RunsPage({
   busy: boolean;
   datasets: DatasetRecord[];
   models: ModelVersionRecord[];
+  onExport: (baselineId: string) => Promise<void>;
   onOpenBaseline: () => void;
   onSelectRun: (id: string) => void;
   onVerify: (run: BaselineRunRecord) => void;
@@ -133,14 +134,15 @@ export function RunsPage({
               <Icon name="refresh" size={16} />
               {busy ? "Replaying exact run…" : "Verify exact rerun"}
             </button>
-            <a
+            <button
               className="button secondary full"
-              download={`experiment-${selectedRun.id}.json`}
-              href={api.experimentUrl(selectedRun.id)}
+              disabled={busy}
+              type="button"
+              onClick={() => void onExport(selectedRun.id)}
             >
               <Icon name="download" size={16} />
               Export experiment envelope
-            </a>
+            </button>
             <small className="inspector-footnote">
               Wall-clock latency is recorded but excluded from pass/fail.
             </small>
