@@ -51,7 +51,7 @@
 
 - 백엔드 89 → **240 tests**, coverage 91.9% → **93.4%**
   (PostgreSQL/Redis 없이도 198 passed + 42 skipped, coverage 91.5%로 gate 통과)
-- 프론트엔드 0 → **54 tests**
+- 프론트엔드 0 → **54 tests** (+ run-comparison 로직 17, 대시보드 커밋에서 합류 예정)
 - `RedisJobQueue`는 주입한 in-memory client로도 검증하므로, 서버 없이 `pytest`만 돌려도
   90% gate가 유지됩니다. 실제 broker 대상 통합 테스트는 그대로 CI에서 돕니다.
 - 신규: `test_jobs_queue.py`, `test_registry_journal.py`, `test_registry_jobs.py`,
@@ -164,6 +164,33 @@ API가 job을 수락만 하고, 별도 `aishield-worker` 프로세스가 실행�
 실제 브라우저로 전 과정을 확인했습니다: 키 없이 접속 → "API KEY REQUIRED" + 키 입력창 자동
 표시 → 키 입력 → 콘솔 해제 → baseline 목록 표시 → envelope 다운로드 성공.
 
+### 14. 실제 배포 모델 대상 query-only black-box 공격
+
+**질문: 이게 실제 AI 모델 모의해킹이 되나?** 이제 이미지 분류기에 한해 **된다.** 가중치를
+갖고 있지 않은 배포 모델을 HTTP로 공격합니다.
+
+- `aishield/attacks/blackbox.py` — score 기반 bounded Square 탐색. gradient 없이 oracle이
+  돌려주는 score만으로 margin을 낮춥니다. 로컬 모델을 oracle로 감싸 오프라인 테스트하고,
+  원격 endpoint에도 그대로 씁니다. 코어는 어느 쪽인지 모릅니다.
+- `aishield/attacks/remote.py` — 원격 분류기 HTTP 클라이언트(stdlib urllib, 런타임 의존성
+  없음). 작은 JSON 계약(`aishield.image-scores.v1`), 응답 형식·유한성 엄격 검증.
+- `POST /api/v1/registry/remote-attacks`.
+
+**인가 (임의 대상 공격 방지, 두 관문 모두 필요):**
+- `AISHIELD_ATTACK_TARGETS_ALLOWLIST`에 등록된 host만. 비어 있으면 전부 거부(기본 off).
+- 요청마다 `authorized: true` 명시. 기본값 아님.
+- 둘 중 하나라도 실패 → 403. query 예산은 `AISHIELD_REMOTE_ATTACK_MAX_QUERIES`로 상한.
+- secret(auth header, query string)은 evidence에 기록하지 않음. 대상은 host + 지문으로만.
+
+**실제 검증:** 테스트가 진짜 `ThreadingHTTPServer`로 모델을 띄우고 loopback TCP로
+query-only 공격을 수행합니다(`test_attacks_a_real_served_model_over_http`). ε=0.4가
+0.35 signal을 이겨 예측을 뒤집고, bound 준수, query 수가 실제 서버 호출 수와 일치함을
+확인했습니다. 인가 거부 5종(플래그·빈 allowlist·미등록 host·query 상한·잘못된 scheme)도 고정.
+
+**아직 아닌 것 (정직하게):** 이미지 분류기 + score 반환 endpoint에 한합니다. LLM 레드팀은
+별도 트랙(메모리 [[llm-redteam-followup]]에 기록, 추후 진행). decision-only(라벨만 반환)
+endpoint용 HopSkipJump류는 아직 없습니다 — 현재는 score 기반 Square만.
+
 ## 이번에 잡은 실제 버그
 
 1. **대시보드가 존재하지 않는 경로 호출** — transfer는 `/registry/defenses/transfer`인데
@@ -205,8 +232,8 @@ docker compose config --quiet
 docker compose --profile gpu config --quiet
 ```
 
-최근 검증 결과: backend `240 passed`(PostgreSQL·Redis 포함) / `198 passed + 42 skipped`
-(서비스 없이), coverage `93.39%` / `91.47%`, Ruff/mypy 통과. Frontend `54 passed`.
+최근 검증 결과: backend `255 passed`(PostgreSQL·Redis 포함) / `213 passed + 42 skipped`
+(서비스 없이), coverage `93.36%` / `91.61%`, Ruff/mypy 통과. Frontend `54 passed`.
 Frontend `43 passed`, TypeScript no-emit과 Vite production build 통과.
 
 라이브 검증도 수행했습니다: 실제 uvicorn + Vite dev server를 띄우고 defense·transfer·

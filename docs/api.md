@@ -31,6 +31,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `POST` | `/api/v1/registry/defenses` | Before/after preprocessing-defense evaluation |
 | `GET` | `/api/v1/registry/defenses` | Defense evaluation list |
 | `POST` | `/api/v1/registry/defenses/transfer` | Surrogate-to-target transfer evaluation |
+| `POST / GET` | `/api/v1/registry/remote-attacks` | Authorized query-only black-box attack on a remote endpoint / list |
 | `GET` | `/api/v1/registry/defenses/transfer` | Transfer evaluation list |
 | `POST` | `/api/v1/registry/robustness-score` | Transparent aggregate over attack evidence |
 | `POST` | `/api/v1/registry/training` | Adversarial training 또는 TRADES checkpoint 생성 |
@@ -192,6 +193,46 @@ Job 상태 전이는 두 프로세스가 각각 자신이 관찰한 것을 metad
 ```bash
 AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile worker up --build
+```
+
+## Remote black-box attacks (real deployed models)
+
+White-box attacks (FGSM/PGD/…) need the model's weights and gradient. To test a
+model you do **not** own the weights of — a deployed image classifier reachable
+over HTTP — AIShield runs a **query-only black-box attack**: a bounded Square-style
+random search that sends images and reads back class scores, never a gradient.
+
+This is gated so it cannot be pointed at arbitrary hosts. Two independent checks
+must both pass:
+
+1. **Allowlist.** `AISHIELD_ATTACK_TARGETS_ALLOWLIST` lists the hostnames you are
+   authorized to test. Empty (the default) refuses every target, so the feature is
+   off until a host is named deliberately.
+2. **Per-request confirmation.** The request must set `authorized: true`, an
+   explicit statement that you may test this target. It is never defaulted to true.
+
+A target that fails either check returns **403**. The query budget is bounded by
+`AISHIELD_REMOTE_ATTACK_MAX_QUERIES`; a request asking for more is refused.
+
+The endpoint you point at must speak a small JSON contract:
+
+```
+POST <endpoint_url>
+request:  {"format": "aishield.image-scores.v1", "images": [[[[...]]]]}  # (N,C,H,W) in [0,1]
+response: {"scores": [[...]]}                                            # (N, num_classes)
+```
+
+The recorded evidence carries the same paired clean/robust/ASR metrics as a
+white-box run, plus the real query count and the maximum perturbation observed.
+The target is identified by host and a secret-free fingerprint — auth headers and
+query strings are never recorded.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/registry/remote-attacks -H 'Content-Type: application/json' -d '{
+  "endpoint_url": "http://model.internal.example.com/score",
+  "num_classes": 10, "dataset_id": "<uuid>", "authorized": true,
+  "epsilon": 0.03137, "max_queries": 5000, "max_samples": 256
+}'
 ```
 
 ## Authentication

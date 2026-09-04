@@ -37,7 +37,8 @@ PostgreSQL은 이제 선택 가능한 metadata backend입니다(`AISHIELD_METADA
 - `aishield.registry` — adapter allowlist, runtime handle, safe checkpoint, hash, orchestration.
 - `aishield.evaluation` — clean metric, latency, environment capture, artifact rendering,
   exact-config verification.
-- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner.
+- `aishield.attacks` — framework-independent attack contract와 bounded FGSM/BIM/PGD/DeepFool/CW/AutoAttack runner,
+  그리고 가중치 없이 score만으로 배포 모델을 공격하는 query-only black-box(Square) + 원격 HTTP 클라이언트.
 - `aishield.schemas` — portable versioned experiment exchange contract.
 - `aishield.jobs` — job status contract, serializable task descriptors, and the
   in-process and Redis backends behind one protocol.

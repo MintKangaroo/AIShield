@@ -25,6 +25,8 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ APGD/FAB/Square bounded compatibility adapters (reference parity warning)
    - ✅ epsilon strength curves and bounded multiple restarts
    - algorithm별 independent numerical fixtures
+   - ✅ query-only black-box attack against an authorized remote endpoint (real
+     deployed models, no weights) — allowlist + per-request confirmation gated
 
 8. **Defense evaluation** *(in progress)*
    - ✅ bit-depth preprocessing defense baseline with before/after/adaptive metrics

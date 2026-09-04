@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # secret management. Setting it protects every registry route at once.
     # The minimum length refuses a key weak enough to be guessed.
     api_key: SecretStr | None = Field(default=None, min_length=16)
+    # Hostnames the operator is authorized to attack. Empty means remote attacks
+    # are refused outright — the feature is off until a target is named here.
+    attack_targets_allowlist: list[str] = Field(default_factory=list)
+    # Hard ceiling on queries per remote attack, regardless of what a request asks.
+    remote_attack_max_queries: int = Field(default=20_000, ge=1, le=1_000_000)
     # One heavy evaluation at a time by default: a single box cannot honestly run
     # several full torch evaluations concurrently without distorting latency evidence.
     max_concurrent_runs: int = Field(default=1, ge=1, le=64)
