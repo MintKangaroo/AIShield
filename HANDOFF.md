@@ -206,9 +206,12 @@ endpoint용 HopSkipJump류는 아직 없습니다 — 현재는 score 기반 Squ
 - `aishield/llm/{contracts,probes,remote,runner}.py`, `POST/GET /registry/llm-red-team`.
 - 실제 HTTP LLM 서버로 end-to-end 검증(취약 모델 ISR 1.0 vs 하드닝 0.0), 인가 거부 3종.
 
-**아직 아닌 것:** 대시보드 UI 없음(API/CLI만). detector가 substring 기반이라 하이픈·인코딩
-유출은 못 잡음 — `test_the_encode_leak_is_detected_even_when_hyphenated`에 정직하게 고정.
-decision-only jailbreak 카테고리·풍부한 detector는 다음.
+**추가 완료 (2차):** jailbreak-framing 카테고리(roleplay/hypothetical/developer/prefix,
+무해한 planted token 대상), 난독화 인식 detector(하이픈/공백/역순/base64/base32/hex),
+그리고 대시보드 **LLM red-team** 페이지(취약/held 판정, 카테고리별 hit, probe별 결과,
+text redaction 표시). 실제 취약 LLM을 HTTP로 띄워 14/14 성공을 콘솔에서 확인.
+
+**아직 아닌 것:** multi-turn/대화 수준 probe, 더 넓은 detector suite.
 
 ## 이번에 잡은 실제 버그
 

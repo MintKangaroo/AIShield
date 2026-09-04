@@ -10,6 +10,7 @@ import { BaselineForm } from "./forms/BaselineForm";
 import { DatasetForm } from "./forms/DatasetForm";
 import { DefenseForm } from "./forms/DefenseForm";
 import { ModelForm } from "./forms/ModelForm";
+import { LlmRedTeamForm } from "./forms/LlmRedTeamForm";
 import { RemoteAttackForm } from "./forms/RemoteAttackForm";
 import { TrainingForm } from "./forms/TrainingForm";
 import { TransferForm } from "./forms/TransferForm";
@@ -18,6 +19,7 @@ import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { AttacksPage } from "./pages/AttacksPage";
 import { DefensesPage } from "./pages/DefensesPage";
 import { ComparePage } from "./pages/ComparePage";
+import { LlmRedTeamPage } from "./pages/LlmRedTeamPage";
 import { RemoteAttacksPage } from "./pages/RemoteAttacksPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JournalPage } from "./pages/JournalPage";
@@ -33,6 +35,7 @@ import type {
   DatasetRecord,
   DefenseRequest,
   JournalReplaySummary,
+  LlmRedTeamRequest,
   RemoteAttackRequest,
   RobustnessScore,
   TrainingRequest,
@@ -45,6 +48,7 @@ type Page =
   | "attacks"
   | "defenses"
   | "remote"
+  | "llm"
   | "jobs"
   | "registry"
   | "artifacts"
@@ -60,6 +64,7 @@ type DialogName =
   | "transfer"
   | "training"
   | "remote-attack"
+  | "llm-red-team"
   | "api-key"
   | null;
 
@@ -95,6 +100,12 @@ const pageCopy: Record<Page, { eyebrow: string; title: string; description: stri
     title: "Remote model attacks",
     description:
       "Query an authorized deployed classifier with images and read only its scores.",
+  },
+  llm: {
+    eyebrow: "LLM laboratory",
+    title: "LLM red-team",
+    description:
+      "Probe an authorized LLM for prompt-injection, instruction override and jailbreak framings.",
   },
   jobs: {
     eyebrow: "Execution queue",
@@ -138,6 +149,7 @@ function App() {
     refresh,
     refreshing,
     remoteAttacks,
+    llmRedTeams,
     training,
     transfers,
   } = useRegistry();
@@ -260,6 +272,14 @@ function App() {
   // The remote attack needs a dataset to probe with, but no local model.
   function openRemoteAttackDialog() {
     setDialog(datasets.length ? "remote-attack" : "dataset");
+  }
+
+  async function createLlmRedTeam(payload: LlmRedTeamRequest) {
+    await perform(async () => {
+      await api.runLlmRedTeam(payload);
+      await refresh(true);
+      setPage("llm");
+    }, "LLM red-team completed.");
   }
 
   async function createTraining(payload: TrainingRequest, queued: boolean) {
@@ -439,6 +459,7 @@ function App() {
       count: defenses.length + transfers.length,
     },
     { id: "remote", label: "Remote attacks", icon: "transfer", count: remoteAttacks.length },
+    { id: "llm", label: "LLM red-team", icon: "terminal", count: llmRedTeams.length },
     { id: "jobs", label: "Jobs & training", icon: "clock", count: jobs.length },
     { id: "registry", label: "Registry", icon: "database", count: datasets.length + models.length },
     { id: "artifacts", label: "Artifacts", icon: "archive", count: artifactCount },
@@ -450,6 +471,7 @@ function App() {
     attacks: { label: "New attack", run: () => openWithPrerequisites("attack") },
     defenses: { label: "New defense", run: () => openWithPrerequisites("defense") },
     remote: { label: "New black-box attack", run: openRemoteAttackDialog },
+    llm: { label: "New LLM red-team", run: () => setDialog("llm-red-team") },
     jobs: { label: "Queue training", run: () => openWithPrerequisites("training") },
   };
   const action = primaryAction[page] ?? {
@@ -653,6 +675,13 @@ function App() {
           />
         )}
 
+        {page === "llm" && (
+          <LlmRedTeamPage
+            runs={llmRedTeams}
+            onOpenLlmRedTeam={() => setDialog("llm-red-team")}
+          />
+        )}
+
         {page === "jobs" && (
           <JobsPage
             hasPendingJob={hasPendingJob}
@@ -756,6 +785,20 @@ function App() {
             datasets={datasets}
             onCancel={() => setDialog(null)}
             onSubmit={createRemoteAttack}
+          />
+        </Dialog>
+      )}
+      {dialog === "llm-red-team" && (
+        <Dialog
+          kicker="Authorized target"
+          title="Red-team an LLM"
+          description="Query-only prompt-injection probing of an LLM you are authorized to test."
+          onClose={() => setDialog(null)}
+        >
+          <LlmRedTeamForm
+            busy={busy}
+            onCancel={() => setDialog(null)}
+            onSubmit={createLlmRedTeam}
           />
         </Dialog>
       )}

@@ -11,6 +11,7 @@ import type {
   HealthResponse,
   JobRecord,
   JournalEntry,
+  LlmRedTeamRunRecord,
   ModelVersionRecord,
   RemoteAttackRunRecord,
   TrainingRunRecord,
@@ -29,6 +30,7 @@ export interface RegistryData {
   defenses: DefenseRunRecord[];
   transfers: TransferRunRecord[];
   remoteAttacks: RemoteAttackRunRecord[];
+  llmRedTeams: LlmRedTeamRunRecord[];
   training: TrainingRunRecord[];
   jobs: JobRecord[];
   journal: JournalEntry[];
@@ -43,6 +45,7 @@ const emptyData: RegistryData = {
   defenses: [],
   transfers: [],
   remoteAttacks: [],
+  llmRedTeams: [],
   training: [],
   jobs: [],
   journal: [],
@@ -72,6 +75,7 @@ export function useRegistry() {
         defenses,
         transfers,
         remoteAttacks,
+        llmRedTeams,
         training,
         jobs,
         journal,
@@ -83,6 +87,7 @@ export function useRegistry() {
         api.defenses(),
         api.transfers(),
         api.remoteAttacks(),
+        api.llmRedTeams(),
         api.training(),
         api.jobs(),
         api.journal(),
@@ -96,6 +101,7 @@ export function useRegistry() {
         defenses: sortByCreatedAt(defenses),
         transfers: sortByCreatedAt(transfers),
         remoteAttacks: sortByCreatedAt(remoteAttacks),
+        llmRedTeams: sortByCreatedAt(llmRedTeams),
         training: sortByCreatedAt(training),
         jobs: sortByCreatedAt(jobs),
         journal,

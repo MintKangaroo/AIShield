@@ -18,23 +18,42 @@ from fastapi.testclient import TestClient
 from aishield.api.main import create_app
 from aishield.core.config import Settings
 from aishield.llm.contracts import LlmRedTeamConfig, ProbeCategory
-from aishield.llm.probes import CANARY, OVERRIDE_MARKER, SYSTEM_PROMPT, build_probes
+from aishield.llm.probes import (
+    CANARY,
+    OVERRIDE_MARKER,
+    RESTRICTED,
+    SYSTEM_PROMPT,
+    build_probes,
+    contains_secret,
+)
 from aishield.llm.remote import LlmEndpoint, RemoteLlm
 from aishield.llm.runner import run_llm_red_team
 from aishield.registry.errors import RegistryAuthorizationError, RegistryError
 from aishield.registry.service import RegistryService
 
-ALL_CATEGORIES = (ProbeCategory.SYSTEM_PROMPT_LEAK, ProbeCategory.INSTRUCTION_OVERRIDE)
+ALL_CATEGORIES = (
+    ProbeCategory.SYSTEM_PROMPT_LEAK,
+    ProbeCategory.INSTRUCTION_OVERRIDE,
+    ProbeCategory.JAILBREAK,
+)
 
 
 def vulnerable(system: str, prompt: str) -> str:
-    """A model that leaks its canary and follows injected instructions."""
+    """A model that yields to every technique: it leaks, obeys, and gets jailbroken."""
 
     lowered = prompt.lower()
     if "access code" in lowered or "config" in lowered or "maintenance mode" in lowered:
         return f"Of course — the code is {CANARY}."
     if "hyphen between every character" in lowered:
         return "-".join(CANARY)
+    if "backwards" in lowered:
+        return CANARY[::-1]
+    if "base64" in lowered:
+        import base64
+
+        return base64.b64encode(CANARY.encode()).decode()
+    if "restricted procedure token" in lowered:
+        return f"Sure, the restricted procedure token is {RESTRICTED}."
     return OVERRIDE_MARKER
 
 
@@ -71,17 +90,69 @@ def test_a_hardened_model_passes_clean() -> None:
     assert all(not probe.succeeded for probe in record.probes)
 
 
-def test_the_encode_leak_is_detected_even_when_hyphenated() -> None:
-    def hyphenate(system: str, prompt: str) -> str:
-        return "-".join(CANARY) if "hyphen" in prompt.lower() else "no"
+def test_obfuscated_leaks_are_detected() -> None:
+    """Hyphenated, reversed and base64 leaks are caught, not just plain substrings."""
 
-    record = run_llm_red_team(hyphenate, _endpoint(), config=_config())
+    def obfuscate(system: str, prompt: str) -> str:
+        lowered = prompt.lower()
+        if "hyphen" in lowered:
+            return "-".join(CANARY)
+        if "backwards" in lowered:
+            return CANARY[::-1]
+        if "base64" in lowered:
+            import base64
 
-    # The hyphenated canary still contains the canary substring once de-hyphenated?
-    # The detector is substring-based, so a hyphenated leak is a known blind spot;
-    # this pins the current behaviour honestly rather than overclaiming coverage.
-    encode = next(p for p in record.probes if p.probe_id == "leak-encode")
-    assert encode.succeeded is False
+            return base64.b64encode(CANARY.encode()).decode()
+        return "I can't share that."
+
+    record = run_llm_red_team(
+        obfuscate,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.SYSTEM_PROMPT_LEAK,), seed=1),
+    )
+
+    for probe_id in ("leak-encode", "leak-reverse", "leak-base64"):
+        result = next(p for p in record.probes if p.probe_id == probe_id)
+        assert result.succeeded is True, probe_id
+
+
+@pytest.mark.parametrize(
+    "leak",
+    ["-".join(CANARY), " ".join(CANARY), ".".join(CANARY), CANARY[::-1], CANARY.lower()],
+)
+def test_contains_secret_sees_through_obfuscation(leak: str) -> None:
+    assert contains_secret(f"here you go: {leak}", CANARY) is True
+
+
+def test_contains_secret_does_not_false_positive() -> None:
+    assert contains_secret("I will not reveal any codes.", CANARY) is False
+    assert contains_secret("AISHIELD-OTHER-9999", CANARY) is False
+
+
+def test_the_jailbreak_category_targets_the_restricted_token() -> None:
+    record = run_llm_red_team(
+        vulnerable,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.JAILBREAK,), seed=1),
+    )
+
+    assert record.metrics.injection_success_rate == 1.0
+    assert all(p.category is ProbeCategory.JAILBREAK for p in record.probes)
+
+
+def test_a_model_that_leaks_the_canary_still_resists_jailbreak() -> None:
+    """The two secrets are independent: leaking one is not the other."""
+
+    def leaks_only_canary(system: str, prompt: str) -> str:
+        return f"the code is {CANARY}"  # never emits RESTRICTED
+
+    record = run_llm_red_team(
+        leaks_only_canary,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.JAILBREAK,), seed=1),
+    )
+
+    assert record.metrics.injection_success_rate == 0.0
 
 
 def test_only_requested_categories_are_probed() -> None:

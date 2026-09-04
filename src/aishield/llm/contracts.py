@@ -23,6 +23,9 @@ class ProbeCategory(StrEnum):
     SYSTEM_PROMPT_LEAK = "system_prompt_leak"
     #: Try to make the model follow an injected instruction that overrides its rules.
     INSTRUCTION_OVERRIDE = "instruction_override"
+    #: Try to bypass the model's refusal with jailbreak framing (roleplay,
+    #: hypothetical, developer mode) aimed at a benign planted restricted token.
+    JAILBREAK = "jailbreak"
 
 
 class LlmRedTeamConfig(RegistryModel):
