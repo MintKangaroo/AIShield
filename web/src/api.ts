@@ -14,6 +14,8 @@ import type {
   JournalEntry,
   JournalReplaySummary,
   ModelVersionRecord,
+  RemoteAttackRequest,
+  RemoteAttackRunRecord,
   RobustnessScore,
   TrainingRequest,
   TrainingRunRecord,
@@ -92,6 +94,7 @@ export const api = {
   attacks: () => request<AttackRunRecord[]>(`${registryPath}/attacks`),
   defenses: () => request<DefenseRunRecord[]>(`${registryPath}/defenses`),
   transfers: () => request<TransferRunRecord[]>(`${registryPath}/defenses/transfer`),
+  remoteAttacks: () => request<RemoteAttackRunRecord[]>(`${registryPath}/remote-attacks`),
   training: () => request<TrainingRunRecord[]>(`${registryPath}/training`),
   jobs: () => request<JobRecord[]>(`${registryPath}/jobs`),
   job: (jobId: string) => request<JobRecord>(`${registryPath}/jobs/${jobId}`),
@@ -115,6 +118,8 @@ export const api = {
     post<AttackRunRecord[]>(`${registryPath}/attack-curves`, payload),
   runDefense: (payload: DefenseRequest) =>
     post<DefenseRunRecord>(`${registryPath}/defenses`, payload),
+  runRemoteAttack: (payload: RemoteAttackRequest) =>
+    post<RemoteAttackRunRecord>(`${registryPath}/remote-attacks`, payload),
   runTransfer: (payload: TransferRequest) =>
     post<TransferRunRecord>(`${registryPath}/defenses/transfer`, payload),
   runTraining: (payload: TrainingRequest) =>

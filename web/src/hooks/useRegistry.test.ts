@@ -20,6 +20,7 @@ function stubCollections(jobs = [] as ReturnType<typeof makeJob>[]) {
     "attacks",
     "defenses",
     "transfers",
+    "remoteAttacks",
     "training",
     "journal",
   ] as const) {

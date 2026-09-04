@@ -12,6 +12,7 @@ import type {
   JobRecord,
   JournalEntry,
   ModelVersionRecord,
+  RemoteAttackRunRecord,
   TrainingRunRecord,
   TransferRunRecord,
 } from "../types";
@@ -27,6 +28,7 @@ export interface RegistryData {
   attacks: AttackRunRecord[];
   defenses: DefenseRunRecord[];
   transfers: TransferRunRecord[];
+  remoteAttacks: RemoteAttackRunRecord[];
   training: TrainingRunRecord[];
   jobs: JobRecord[];
   journal: JournalEntry[];
@@ -40,6 +42,7 @@ const emptyData: RegistryData = {
   attacks: [],
   defenses: [],
   transfers: [],
+  remoteAttacks: [],
   training: [],
   jobs: [],
   journal: [],
@@ -68,6 +71,7 @@ export function useRegistry() {
         attacks,
         defenses,
         transfers,
+        remoteAttacks,
         training,
         jobs,
         journal,
@@ -78,6 +82,7 @@ export function useRegistry() {
         api.attacks(),
         api.defenses(),
         api.transfers(),
+        api.remoteAttacks(),
         api.training(),
         api.jobs(),
         api.journal(),
@@ -90,6 +95,7 @@ export function useRegistry() {
         attacks: sortByCreatedAt(attacks),
         defenses: sortByCreatedAt(defenses),
         transfers: sortByCreatedAt(transfers),
+        remoteAttacks: sortByCreatedAt(remoteAttacks),
         training: sortByCreatedAt(training),
         jobs: sortByCreatedAt(jobs),
         journal,

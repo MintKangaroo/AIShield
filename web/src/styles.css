@@ -2558,6 +2558,19 @@ main {
   background: rgb(245 184 75 / 10%);
 }
 
+.attack-head.remote-head,
+.remote-row {
+  grid-template-columns:
+    minmax(150px, 1.3fr) minmax(110px, 0.9fr) minmax(58px, 0.5fr) minmax(62px, 0.55fr)
+    minmax(62px, 0.55fr) minmax(70px, 0.6fr) minmax(70px, 0.55fr);
+}
+
+.check-field.authorize {
+  height: auto;
+  border-color: rgb(245 184 75 / 35%);
+  background: rgb(245 184 75 / 8%);
+}
+
 .replay-facts {
   padding: 4px 18px 14px;
 }

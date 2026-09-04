@@ -10,12 +10,14 @@ import { BaselineForm } from "./forms/BaselineForm";
 import { DatasetForm } from "./forms/DatasetForm";
 import { DefenseForm } from "./forms/DefenseForm";
 import { ModelForm } from "./forms/ModelForm";
+import { RemoteAttackForm } from "./forms/RemoteAttackForm";
 import { TrainingForm } from "./forms/TrainingForm";
 import { TransferForm } from "./forms/TransferForm";
 import { useRegistry } from "./hooks/useRegistry";
 import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { AttacksPage } from "./pages/AttacksPage";
 import { DefensesPage } from "./pages/DefensesPage";
+import { RemoteAttacksPage } from "./pages/RemoteAttacksPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JournalPage } from "./pages/JournalPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -30,6 +32,7 @@ import type {
   DatasetRecord,
   DefenseRequest,
   JournalReplaySummary,
+  RemoteAttackRequest,
   RobustnessScore,
   TrainingRequest,
   TransferRequest,
@@ -40,6 +43,7 @@ type Page =
   | "runs"
   | "attacks"
   | "defenses"
+  | "remote"
   | "jobs"
   | "registry"
   | "artifacts"
@@ -53,6 +57,7 @@ type DialogName =
   | "defense"
   | "transfer"
   | "training"
+  | "remote-attack"
   | "api-key"
   | null;
 
@@ -82,6 +87,12 @@ const pageCopy: Record<Page, { eyebrow: string; title: string; description: stri
     title: "Defenses & transfer",
     description:
       "Measure a preprocessing defense before, after, and under a defense-aware adaptive attack.",
+  },
+  remote: {
+    eyebrow: "Black-box laboratory",
+    title: "Remote model attacks",
+    description:
+      "Query an authorized deployed classifier with images and read only its scores.",
   },
   jobs: {
     eyebrow: "Execution queue",
@@ -119,6 +130,7 @@ function App() {
     models,
     refresh,
     refreshing,
+    remoteAttacks,
     training,
     transfers,
   } = useRegistry();
@@ -228,6 +240,19 @@ function App() {
       await refresh(true);
       setPage("defenses");
     }, "Black-box transfer evidence recorded.");
+  }
+
+  async function createRemoteAttack(payload: RemoteAttackRequest) {
+    await perform(async () => {
+      await api.runRemoteAttack(payload);
+      await refresh(true);
+      setPage("remote");
+    }, "Black-box attack completed against the remote target.");
+  }
+
+  // The remote attack needs a dataset to probe with, but no local model.
+  function openRemoteAttackDialog() {
+    setDialog(datasets.length ? "remote-attack" : "dataset");
   }
 
   async function createTraining(payload: TrainingRequest, queued: boolean) {
@@ -406,6 +431,7 @@ function App() {
       icon: "shield",
       count: defenses.length + transfers.length,
     },
+    { id: "remote", label: "Remote attacks", icon: "transfer", count: remoteAttacks.length },
     { id: "jobs", label: "Jobs & training", icon: "clock", count: jobs.length },
     { id: "registry", label: "Registry", icon: "database", count: datasets.length + models.length },
     { id: "artifacts", label: "Artifacts", icon: "archive", count: artifactCount },
@@ -415,6 +441,7 @@ function App() {
   const primaryAction: Record<string, { label: string; run: () => void }> = {
     attacks: { label: "New attack", run: () => openWithPrerequisites("attack") },
     defenses: { label: "New defense", run: () => openWithPrerequisites("defense") },
+    remote: { label: "New black-box attack", run: openRemoteAttackDialog },
     jobs: { label: "Queue training", run: () => openWithPrerequisites("training") },
   };
   const action = primaryAction[page] ?? {
@@ -610,6 +637,14 @@ function App() {
           />
         )}
 
+        {page === "remote" && (
+          <RemoteAttacksPage
+            datasets={datasets}
+            runs={remoteAttacks}
+            onOpenRemoteAttack={openRemoteAttackDialog}
+          />
+        )}
+
         {page === "jobs" && (
           <JobsPage
             hasPendingJob={hasPendingJob}
@@ -689,6 +724,21 @@ function App() {
             models={models}
             onCancel={() => setDialog(null)}
             onSubmit={createDefense}
+          />
+        </Dialog>
+      )}
+      {dialog === "remote-attack" && (
+        <Dialog
+          kicker="Authorized target"
+          title="Attack a remote model"
+          description="Query-only black-box attack against a classifier you are authorized to test."
+          onClose={() => setDialog(null)}
+        >
+          <RemoteAttackForm
+            busy={busy}
+            datasets={datasets}
+            onCancel={() => setDialog(null)}
+            onSubmit={createRemoteAttack}
           />
         </Dialog>
       )}
