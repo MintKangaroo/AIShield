@@ -30,6 +30,8 @@ class JobRecord(RegistryModel):
     finished_at: AwareDatetime | None = None
     result_id: UUID | None = None
     error: str | None = None
+    # How many times execution has been attempted; a retry increments this.
+    attempts: int = Field(default=0, ge=0, le=100)
 
     @classmethod
     def queued(cls, job_id: UUID, kind: str) -> "JobRecord":

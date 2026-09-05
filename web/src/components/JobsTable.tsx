@@ -40,7 +40,8 @@ export function JobsTable({ jobs }: { jobs: JobRecord[] }) {
           <span>{job.kind}</span>
           <span className={`job-status ${job.status}`}>
             <Icon name={statusIcon[job.status]} size={13} />
-            {job.status}
+            {job.status === "failed" && job.attempts > 1 ? "dead-letter" : job.status}
+            {job.attempts > 1 ? <small className="attempt-count"> ×{job.attempts}</small> : null}
           </span>
           <span className="mono">{formatDuration(job.started_at, job.finished_at)}</span>
           <span className="mono job-result">

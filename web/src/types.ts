@@ -345,6 +345,7 @@ export interface JobRecord {
   finished_at: string | null;
   result_id: string | null;
   error: string | null;
+  attempts: number;
 }
 
 export interface RobustnessScore {

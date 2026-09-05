@@ -52,6 +52,7 @@ def build_job_backend(
             settings.redis_url,
             max_pending=settings.job_max_pending,
             retained_jobs=settings.job_retained_records,
+            max_attempts=settings.job_max_attempts,
             observer=observer,
         )
 
@@ -62,5 +63,6 @@ def build_job_backend(
         max_workers=settings.job_max_workers,
         max_pending=settings.job_max_pending,
         retained_jobs=settings.job_retained_records,
+        max_attempts=settings.job_max_attempts,
         observer=observer,
     )

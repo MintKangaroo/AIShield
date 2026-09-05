@@ -75,7 +75,7 @@ class Worker:
                 result_id = self.registry.execute_task(task)
             except Exception as error:  # noqa: BLE001 - persist failure as job evidence
                 logger.exception("task failed", extra={"job_id": str(job.id)})
-                self.queue.fail(job.id, str(error))
+                self.queue.fail(job.id, str(error), task=task)
             else:
                 self.queue.complete(job.id, result_id)
         self.queue.evict_finished()

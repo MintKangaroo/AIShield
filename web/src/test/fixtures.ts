@@ -113,6 +113,7 @@ export function makeJob(overrides: Partial<JobRecord> = {}): JobRecord {
     finished_at: null,
     result_id: null,
     error: null,
+    attempts: 0,
     ...overrides,
   };
 }

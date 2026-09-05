@@ -48,7 +48,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ CPU/CUDA worker images pinned by digest, with the deployed digest recorded
      in every evidence envelope
    - ✅ artifact garbage collection: orphan sweep with a dry-run preview
-   - worker dead-letter handling
+   - ✅ worker dead-letter handling: bounded retries, then a FAILED record kept for inspection
 
 10. **Transparent robustness score**
     - ✅ versioned public formula

@@ -395,3 +395,65 @@ def test_the_pending_bound_is_enforced_against_a_burst(client: FakeRedis) -> Non
         thread.join()
 
     assert 4 <= accepted < 40
+
+
+# --- retry and dead-letter ----------------------------------------------------
+
+
+def test_fail_requeues_when_attempts_remain(client: FakeRedis) -> None:
+    queue = build_queue(client, max_attempts=3)
+    submitted = queue.submit(make_task())
+    claimed = queue.claim(timeout=1)
+    assert claimed is not None
+    record, task = claimed
+    assert record.attempts == 1  # claim counts the attempt
+
+    requeued = queue.fail(submitted.id, "transient", task=task)
+
+    assert requeued.status is JobStatus.QUEUED
+    assert queue.get(submitted.id).status is JobStatus.QUEUED
+    # The task envelope is back on the pending list for another worker.
+    assert client.llen(PENDING_KEY) == 1
+
+
+def test_fail_dead_letters_after_attempts_are_exhausted(client: FakeRedis) -> None:
+    queue = build_queue(client, max_attempts=2)
+    submitted = queue.submit(make_task())
+
+    # Two claim+fail cycles exhaust the budget.
+    for _ in range(2):
+        claimed = queue.claim(timeout=1)
+        assert claimed is not None
+        record = queue.fail(submitted.id, "still failing", task=claimed[1])
+
+    assert record.status is JobStatus.FAILED
+    assert queue.get(submitted.id).attempts == 2
+    assert client.llen(PENDING_KEY) == 0  # not requeued
+
+
+def test_fail_without_a_task_dead_letters_immediately(client: FakeRedis) -> None:
+    queue = build_queue(client, max_attempts=3)
+    submitted = queue.submit(make_task())
+    queue.claim(timeout=1)
+
+    record = queue.fail(submitted.id, "no task to retry with")
+
+    assert record.status is JobStatus.FAILED
+
+
+def test_a_dead_lettered_job_stays_inspectable(client: FakeRedis) -> None:
+    queue = build_queue(client, max_attempts=1)
+    submitted = queue.submit(make_task())
+    claimed = queue.claim(timeout=1)
+    assert claimed is not None
+    queue.fail(submitted.id, "boom", task=claimed[1])
+
+    listed = queue.list()
+    assert len(listed) == 1
+    assert listed[0].status is JobStatus.FAILED
+    assert listed[0].error == "boom"
+
+
+def test_redis_queue_rejects_bad_max_attempts(client: FakeRedis) -> None:
+    with pytest.raises(ValueError):
+        build_queue(client, max_attempts=0)

@@ -189,6 +189,9 @@ Worker는 runtime handle을 전달받지 않습니다. 공유 metadata store에�
 평가할 수 없습니다. 이 구조가 성립하려면 metadata가 공유되어야 하므로 `redis` job backend는
 `postgresql` metadata backend와 함께 씁니다.
 
+실패한 job은 `AISHIELD_JOB_MAX_ATTEMPTS`(기본 1)까지 재시도합니다. 재시도가 소진되면
+FAILED로 dead-letter되어 job 목록에 조회 가능한 증거로 남습니다(사라지지 않습니다).
+
 Job 상태 전이는 두 프로세스가 각각 자신이 관찰한 것을 metadata store에 기록합니다
 (API가 `queued`, worker가 `running`/`succeeded`/`failed`).
 

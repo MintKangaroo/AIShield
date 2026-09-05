@@ -311,7 +311,8 @@ npm --prefix web ci
 6. (완료) Artifact garbage collection — orphan sweep. retained record가 참조하지 않는
    checkpoint·baseline 디렉터리·.tmp만 삭제(현재 레코드는 불변), dry-run 미리보기 제공.
    레코드 집합 자체의 상한은 append-only 저널 특성상 별도 backend 과제로 남김
-7. Worker의 dead-letter 처리 — 현재 실패한 job은 기록만 되고 재시도하지 않습니다
+7. (완료) Worker dead-letter — 실패 job을 job_max_attempts(기본 1)까지 재시도, 소진 시
+   FAILED로 dead-letter(조회 가능). in-process·Redis 양쪽 구현, attempts를 record에 기록
 
 세부 범위는 `docs/roadmap.md`를 기준으로 합니다. 새 기능은 numerical unit test, API
 contract test, strict typing, README/API 문서 갱신을 함께 완료해야 합니다.

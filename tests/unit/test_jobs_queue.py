@@ -217,3 +217,66 @@ def test_queue_rejects_nonsensical_bounds(
             max_pending=max_pending,
             retained_jobs=retained,
         )
+
+
+# --- retry and dead-letter ----------------------------------------------------
+
+
+def test_a_flaky_job_is_retried_until_it_succeeds() -> None:
+    attempts = {"n": 0}
+    result = uuid4()
+
+    def flaky(task: TaskDescriptor) -> UUID:
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise RuntimeError("transient failure")
+        return result
+
+    queue = JobQueue(flaky, max_workers=1, max_attempts=3)
+    job = queue.submit(make_task())
+    finished = _drain(queue, job.id)
+    queue.shutdown()
+
+    assert finished.status is JobStatus.SUCCEEDED
+    assert finished.result_id == result
+    assert finished.attempts == 3
+
+
+def test_a_job_that_always_fails_is_dead_lettered_after_max_attempts() -> None:
+    attempts = {"n": 0}
+
+    def always_fails(task: TaskDescriptor) -> UUID:
+        attempts["n"] += 1
+        raise RuntimeError("permanent failure")
+
+    queue = JobQueue(always_fails, max_workers=1, max_attempts=3)
+    job = queue.submit(make_task())
+    finished = _drain(queue, job.id)
+    queue.shutdown()
+
+    assert finished.status is JobStatus.FAILED
+    assert finished.error == "permanent failure"
+    assert finished.attempts == 3
+    assert attempts["n"] == 3
+
+
+def test_the_default_is_a_single_attempt_no_retry() -> None:
+    attempts = {"n": 0}
+
+    def fails(task: TaskDescriptor) -> UUID:
+        attempts["n"] += 1
+        raise RuntimeError("boom")
+
+    queue = JobQueue(fails, max_workers=1)  # default max_attempts=1
+    job = queue.submit(make_task())
+    finished = _drain(queue, job.id)
+    queue.shutdown()
+
+    assert finished.status is JobStatus.FAILED
+    assert finished.attempts == 1
+    assert attempts["n"] == 1
+
+
+def test_max_attempts_must_be_positive() -> None:
+    with pytest.raises(ValueError):
+        JobQueue(lambda task: None, max_workers=1, max_attempts=0)
