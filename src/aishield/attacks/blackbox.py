@@ -201,3 +201,158 @@ def evaluate_black_box(
         total_queries=counter.total,
         maximum_observed_linf=maximum_linf,
     )
+
+
+#: Batch labels for images in [0, 1]; shape (N, C, H, W) -> (N,) class indices.
+DecisionOracle = Callable[[Tensor], Tensor]
+
+
+def run_decision_attack(
+    oracle: DecisionOracle,
+    inputs: Tensor,
+    targets: Tensor,
+    *,
+    epsilon: float,
+    max_queries: int,
+    generator: torch.Generator,
+) -> tuple[Tensor, int]:
+    """Perturb a batch within an L-infinity ball using only predicted labels.
+
+    This is the harder black-box setting: the model returns a class, not scores,
+    so there is no margin to descend. The attack first random-searches the ball
+    for any perturbation that flips the label, then binary-searches back toward
+    the clean image to shrink the perturbation while staying misclassified — a
+    bounded decision-based (boundary) attack, not a claim of parity with a named
+    reference implementation.
+    """
+
+    if inputs.ndim != 4:
+        raise ValueError("decision-based inputs must be a (N, C, H, W) batch")
+    if not torch.isfinite(inputs).all():
+        raise ValueError("decision-based inputs must be finite")
+    if float(inputs.min()) < 0.0 or float(inputs.max()) > 1.0:
+        raise ValueError("decision-based inputs must lie in [0, 1]")
+    if max_queries < 1:
+        raise ValueError("max_queries must be at least 1")
+
+    spent = 0
+
+    def labelled(images: Tensor) -> Tensor:
+        nonlocal spent
+        spent += int(images.shape[0])
+        labels = oracle(images)
+        if labels.shape != (images.shape[0],):
+            raise ValueError("decision oracle must return one label per image")
+        return labels
+
+    best = inputs.clone()
+    # A flip found so far for each image; drives the boundary refinement.
+    flipped_input = inputs.clone()
+    has_flip = torch.zeros(inputs.shape[0], dtype=torch.bool)
+
+    # Phase 1: random search within the ball for an initial label flip.
+    search_budget = max(1, max_queries // 2)
+    steps = max(1, search_budget // max(1, inputs.shape[0]))
+    _, channels, height, width = inputs.shape
+    for _ in range(steps):
+        if bool(has_flip.all()):
+            break
+        active = (~has_flip).nonzero(as_tuple=True)[0]
+        # A single-sign perturbation over a random block shifts that region's mean,
+        # which per-pixel random noise averages away. Still decision-only: we read
+        # a label, not a score.
+        delta = torch.zeros((active.shape[0], channels, height, width))
+        for row in range(active.shape[0]):
+            bh = int(torch.randint(1, height + 1, (1,), generator=generator).item())
+            bw = int(torch.randint(1, width + 1, (1,), generator=generator).item())
+            top = int(torch.randint(0, height - bh + 1, (1,), generator=generator).item())
+            left = int(torch.randint(0, width - bw + 1, (1,), generator=generator).item())
+            sign = torch.randint(0, 2, (channels, 1, 1), generator=generator).float() * 2.0 - 1.0
+            delta[row, :, top : top + bh, left : left + bw] = sign * epsilon
+        candidate = torch.clamp(inputs[active] + delta, 0.0, 1.0)
+        labels = labelled(candidate)
+        newly = labels != targets[active]
+        idx = active[newly]
+        flipped_input[idx] = candidate[newly]
+        best[idx] = candidate[newly]
+        has_flip[idx] = True
+
+    # Phase 2: for images with a flip, binary-search toward the clean image so the
+    # recorded perturbation reflects the boundary, not the initial random jump.
+    low = torch.zeros(inputs.shape[0])  # 0 -> clean, 1 -> the found flip
+    high = torch.ones(inputs.shape[0])
+    refine_steps = max(0, (max_queries - spent) // max(1, int(has_flip.sum()) or 1))
+    for _ in range(min(refine_steps, 20)):
+        active = has_flip.nonzero(as_tuple=True)[0]
+        if active.shape[0] == 0:
+            break
+        mid = ((low[active] + high[active]) / 2.0).view(-1, 1, 1, 1)
+        candidate = torch.clamp(
+            inputs[active] + mid * (flipped_input[active] - inputs[active]), 0.0, 1.0
+        )
+        labels = labelled(candidate)
+        still = labels != targets[active]
+        # Where it still flips, we can move closer to clean (lower high); otherwise
+        # we went too far, so raise the floor.
+        high_idx = active[still]
+        low_idx = active[~still]
+        high[high_idx] = (low[high_idx] + high[high_idx]) / 2.0
+        best[high_idx] = candidate[still]
+        low[low_idx] = (low[low_idx] + high[low_idx]) / 2.0
+
+    linf = float((best - inputs).abs().amax().item()) if inputs.shape[0] else 0.0
+    if linf > epsilon + BOUND_TOLERANCE:
+        raise ValueError("decision-based perturbation exceeded the configured L-infinity bound")
+    return best, spent
+
+
+def evaluate_black_box_decision(
+    oracle: DecisionOracle,
+    batches: list[tuple[Tensor, Tensor]],
+    *,
+    epsilon: float,
+    max_queries: int,
+    seed: int,
+) -> BlackBoxResult:
+    """Run the decision-based attack over a dataset using only predicted labels."""
+
+    generator = torch.Generator().manual_seed(seed)
+    spent = 0
+
+    def counted(images: Tensor) -> Tensor:
+        nonlocal spent
+        spent += int(images.shape[0])
+        return oracle(images)
+
+    targets_all: list[int] = []
+    clean_all: list[int] = []
+    adversarial_all: list[int] = []
+    maximum_linf = 0.0
+
+    for inputs, targets in batches:
+        clean_labels = counted(inputs)
+        adversarial, queries = run_decision_attack(
+            oracle,
+            inputs,
+            targets,
+            epsilon=epsilon,
+            max_queries=max_queries,
+            generator=generator,
+        )
+        spent += queries
+        adversarial_labels = counted(adversarial)
+        maximum_linf = max(maximum_linf, float((adversarial - inputs).abs().amax().item()))
+        targets_all.extend(int(v) for v in targets.tolist())
+        clean_all.extend(int(v) for v in clean_labels.tolist())
+        adversarial_all.extend(int(v) for v in adversarial_labels.tolist())
+
+    if not targets_all:
+        raise ValueError("decision-based evaluation produced no samples")
+
+    return BlackBoxResult(
+        clean_predictions=clean_all,
+        adversarial_predictions=adversarial_all,
+        targets=targets_all,
+        total_queries=spent,
+        maximum_observed_linf=maximum_linf,
+    )

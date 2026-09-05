@@ -294,3 +294,125 @@ def test_a_malformed_response_shape_is_rejected(tmp_path: Path) -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+# --- decision-based (label-only) endpoint -------------------------------------
+
+
+class _LabelHandler(_ModelHandler):
+    """A deployed model that returns only the predicted label, not scores."""
+
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers.get("Content-Length", "0"))
+        payload = json.loads(self.rfile.read(length))
+        images = torch.tensor(payload["images"], dtype=torch.float32)
+        type(self).query_count += int(images.shape[0])
+        labels = _quadrant_scores(images).argmax(dim=1).tolist()
+        body = json.dumps({"labels": labels}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def served_labels() -> Iterator[str]:
+    _LabelHandler.query_count = 0
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _LabelHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host, port = server.server_address[0], server.server_address[1]
+        yield f"http://{host!s}:{port}/predict"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _boundary_config() -> RemoteAttackConfig:
+    return RemoteAttackConfig(
+        algorithm="boundary", epsilon=0.6, max_queries=500, seed=7, batch_size=16, max_samples=16
+    )
+
+
+def test_boundary_attack_against_a_label_only_model(tmp_path: Path, served_labels: str) -> None:
+    service = _service(tmp_path, allowlist=["127.0.0.1"])
+    dataset_id = _load_dataset(service)
+
+    record = service.run_remote_attack(
+        UUID(dataset_id),
+        RemoteEndpoint(url=served_labels, num_classes=CLASSES, returns="labels"),
+        config=_boundary_config(),
+        authorized=True,
+    )
+
+    assert _LabelHandler.query_count > 0
+    assert record.metrics.total_queries == _LabelHandler.query_count
+    assert record.config.algorithm == "boundary"
+    assert record.metrics.maximum_observed_linf <= 0.6 + 1e-6
+    # A 0.6 bound overcomes the 0.35 signal even with only label feedback.
+    assert record.metrics.attack_success_rate > 0.0
+
+
+def test_square_attack_rejects_a_label_only_endpoint(tmp_path: Path, served_labels: str) -> None:
+    service = _service(tmp_path, allowlist=["127.0.0.1"])
+    dataset_id = _load_dataset(service)
+
+    with pytest.raises(RegistryError, match="scores endpoint"):
+        service.run_remote_attack(
+            UUID(dataset_id),
+            RemoteEndpoint(url=served_labels, num_classes=CLASSES, returns="labels"),
+            config=RemoteAttackConfig(
+                algorithm="square",
+                epsilon=0.4,
+                max_queries=300,
+                seed=7,
+                batch_size=16,
+                max_samples=16,
+            ),
+            authorized=True,
+        )
+
+
+def test_boundary_attack_also_works_against_a_scores_endpoint(
+    tmp_path: Path, served_model: str
+) -> None:
+    """Decision-based needs only labels, so a scores endpoint works too (via argmax)."""
+
+    service = _service(tmp_path, allowlist=["127.0.0.1"])
+    dataset_id = _load_dataset(service)
+
+    record = service.run_remote_attack(
+        UUID(dataset_id),
+        RemoteEndpoint(url=served_model, num_classes=CLASSES, returns="scores"),
+        config=_boundary_config(),
+        authorized=True,
+    )
+
+    assert record.metrics.attack_success_rate > 0.0
+
+
+def test_a_malformed_label_response_is_rejected(tmp_path: Path) -> None:
+    class BadLabels(_ModelHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(length)
+            body = json.dumps({"labels": [99]}).encode("utf-8")  # out-of-range class
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), BadLabels)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host, port = server.server_address[0], server.server_address[1]
+        classifier = RemoteImageClassifier(
+            RemoteEndpoint(url=f"http://{host!s}:{port}/p", num_classes=CLASSES, returns="labels")
+        )
+        with pytest.raises(RegistryError, match="valid class indices"):
+            classifier.predict_labels(torch.rand(1, 1, 8, 8))
+    finally:
+        server.shutdown()
+        server.server_close()

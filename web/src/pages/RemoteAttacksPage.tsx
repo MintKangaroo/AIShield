@@ -47,7 +47,7 @@ export function RemoteAttacksPage({
               return (
                 <div className="attack-row remote-row" key={run.id}>
                   <span className="attack-name">
-                    <i>SQUARE</i>
+                    <i>{run.config.algorithm === "boundary" ? "BOUNDARY" : "SQUARE"}</i>
                     <span>
                       <b>{run.target_host}</b>
                       <small>{formatDate(run.created_at)}</small>

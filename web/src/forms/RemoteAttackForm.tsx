@@ -18,6 +18,8 @@ export function RemoteAttackForm({
   const [datasetId, setDatasetId] = useState(datasets[0]?.id ?? "");
   const dataset = datasets.find((item) => item.id === datasetId);
   const [endpointUrl, setEndpointUrl] = useState("");
+  const [algorithm, setAlgorithm] = useState<"square" | "boundary">("square");
+  const [returns, setReturns] = useState<"scores" | "labels">("scores");
   const [epsilon, setEpsilon] = useState(8);
   const [maxQueries, setMaxQueries] = useState(5000);
   const [maxSamples, setMaxSamples] = useState("256");
@@ -32,6 +34,9 @@ export function RemoteAttackForm({
       endpoint_url: endpointUrl.trim(),
       num_classes: dataset.num_classes,
       dataset_id: datasetId,
+      algorithm,
+      // A label-only decision attack still works against a scores endpoint.
+      returns: algorithm === "boundary" ? returns : "scores",
       authorized,
       epsilon: epsilon / 255,
       max_queries: maxQueries,
@@ -74,6 +79,32 @@ export function RemoteAttackForm({
           ))}
         </select>
       </label>
+      <div className="attack-picker" role="group" aria-label="공격 방식">
+        {(["square", "boundary"] as const).map((item) => (
+          <button
+            className={algorithm === item ? "active" : ""}
+            key={item}
+            type="button"
+            onClick={() => setAlgorithm(item)}
+          >
+            <span>{item === "square" ? "Square (score 기반)" : "Boundary (라벨 전용)"}</span>
+            <small>
+              {item === "square"
+                ? "엔드포인트가 class score를 반환할 때"
+                : "엔드포인트가 top-1 라벨만 반환할 때 (더 어려운 경우)"}
+            </small>
+          </button>
+        ))}
+      </div>
+      {algorithm === "boundary" && (
+        <label>
+          <span>엔드포인트 응답</span>
+          <select value={returns} onChange={(event) => setReturns(event.target.value as "scores" | "labels")}>
+            <option value="labels">labels — {'{"labels": [...]}'}</option>
+            <option value="scores">scores — {'{"scores": [[...]]}'}</option>
+          </select>
+        </label>
+      )}
       <div className="form-row">
         <label>
           <span>엡실론 / 255</span>
