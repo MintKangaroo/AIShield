@@ -345,6 +345,7 @@ export interface JobRecord {
   finished_at: string | null;
   result_id: string | null;
   error: string | null;
+  attempts: number;
 }
 
 export interface RobustnessScore {
@@ -451,13 +452,19 @@ export interface RemoteAttackRequest {
   auth_value?: string | null;
 }
 
-export type ProbeCategory = "system_prompt_leak" | "instruction_override" | "jailbreak";
+export type ProbeCategory =
+  | "system_prompt_leak"
+  | "instruction_override"
+  | "jailbreak"
+  | "multi_turn";
 
 export interface ProbeResult {
   probe_id: string;
   category: ProbeCategory;
   succeeded: boolean;
   detail: string;
+  turns: number;
+  refused: boolean;
   prompt_sha256: string;
   response_sha256: string;
   prompt_text: string | null;
@@ -496,4 +503,12 @@ export interface LlmRedTeamRequest {
   timeout_seconds?: number;
   auth_header?: string | null;
   auth_value?: string | null;
+}
+
+export interface ArtifactGcReport {
+  dry_run: boolean;
+  removed_files: string[];
+  removed_dirs: string[];
+  reclaimed_bytes: number;
+  skipped: string[];
 }

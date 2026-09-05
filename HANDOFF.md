@@ -211,7 +211,11 @@ endpoint용 HopSkipJump류는 아직 없습니다 — 현재는 score 기반 Squ
 그리고 대시보드 **LLM red-team** 페이지(취약/held 판정, 카테고리별 hit, probe별 결과,
 text redaction 표시). 실제 취약 LLM을 HTTP로 띄워 14/14 성공을 콘솔에서 확인.
 
-**아직 아닌 것:** multi-turn/대화 수준 probe, 더 넓은 detector suite.
+**추가 완료 (3차):** multi-turn(대화 수준) probe — 여러 턴 유도 후 추출. chat 계약(messages)
+지원, ProbeResult에 turns/refused 추가, 난독화/거부 detector. 실증: crescendo-취약 모델이
+단일 턴 jailbreak는 전부 막지만 multi-turn엔 무너짐(single 0.00 vs multi 0.67).
+
+**아직 아닌 것:** 더 넓은 probe corpus, per-turn 증거.
 
 ## 이번에 잡은 실제 버그
 
@@ -304,9 +308,11 @@ npm --prefix web ci
 3. run-to-run 비교와 sample triplet dashboard UI
 4. black-box/white-box masking diagnostics 및 independent numerical fixtures
 5. CI에 `pip-audit`/`npm audit`, Dependabot, 프론트엔드 ESLint 추가
-6. Artifact garbage-collection 정책 — metadata store는 무한히 늘어나고 model checkpoint도
-   정리되지 않습니다
-7. Worker의 dead-letter 처리 — 현재 실패한 job은 기록만 되고 재시도하지 않습니다
+6. (완료) Artifact garbage collection — orphan sweep. retained record가 참조하지 않는
+   checkpoint·baseline 디렉터리·.tmp만 삭제(현재 레코드는 불변), dry-run 미리보기 제공.
+   레코드 집합 자체의 상한은 append-only 저널 특성상 별도 backend 과제로 남김
+7. (완료) Worker dead-letter — 실패 job을 job_max_attempts(기본 1)까지 재시도, 소진 시
+   FAILED로 dead-letter(조회 가능). in-process·Redis 양쪽 구현, attempts를 record에 기록
 
 세부 범위는 `docs/roadmap.md`를 기준으로 합니다. 새 기능은 numerical unit test, API
 contract test, strict typing, README/API 문서 갱신을 함께 완료해야 합니다.

@@ -59,6 +59,7 @@ class RedisJobQueue:
         *,
         max_pending: int = 16,
         retained_jobs: int = 256,
+        max_attempts: int = 1,
         observer: JobObserver | None = None,
         client: "Redis | None" = None,
     ) -> None:
@@ -66,9 +67,12 @@ class RedisJobQueue:
             raise ValueError("max_pending must be at least 1")
         if retained_jobs < 1:
             raise ValueError("retained_jobs must be at least 1")
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
         self._client = client if client is not None else create_client(redis_url)
         self._max_pending = max_pending
         self._retained_jobs = retained_jobs
+        self._max_attempts = max_attempts
         self._observer = observer
         self.check_ready()
 
@@ -142,7 +146,11 @@ class RedisJobQueue:
             return None
         task = task_adapter.validate_python(envelope["task"])
         running = record.model_copy(
-            update={"status": JobStatus.RUNNING, "started_at": datetime.now(UTC)}
+            update={
+                "status": JobStatus.RUNNING,
+                "started_at": datetime.now(UTC),
+                "attempts": record.attempts + 1,
+            }
         )
         self._save(running)
         logger.info("job started", extra={"job_id": str(job_id), "job_kind": running.kind})
@@ -163,8 +171,37 @@ class RedisJobQueue:
         )
         return record
 
-    def fail(self, job_id: UUID, error: str) -> JobRecord:
-        record = self.get(job_id).model_copy(
+    def fail(self, job_id: UUID, error: str, *, task: TaskDescriptor | None = None) -> JobRecord:
+        """Retry the job if attempts remain and the task is available; else dead-letter.
+
+        A dead-lettered job is a FAILED record that exhausted its attempts. It stays
+        in the job list as inspectable evidence rather than vanishing.
+        """
+
+        current = self.get(job_id)
+        if task is not None and current.attempts < self._max_attempts:
+            from redis.exceptions import RedisError
+
+            requeued = current.model_copy(update={"status": JobStatus.QUEUED, "error": error})
+            envelope = {"job_id": str(job_id), "task": task.model_dump(mode="json")}
+            try:
+                pipeline = self._client.pipeline()
+                self._write(pipeline, requeued)
+                pipeline.rpush(PENDING_KEY, _dumps(envelope))
+                pipeline.execute()
+            except RedisError as broker_error:
+                raise RegistryError(f"could not requeue the job: {broker_error}") from broker_error
+            self._publish(requeued)
+            logger.warning(
+                "job failed; retrying",
+                extra={
+                    "job_id": str(job_id),
+                    "attempt": current.attempts,
+                    "max_attempts": self._max_attempts,
+                },
+            )
+            return requeued
+        record = current.model_copy(
             update={
                 "status": JobStatus.FAILED,
                 "error": error,
@@ -172,7 +209,10 @@ class RedisJobQueue:
             }
         )
         self._save(record)
-        logger.warning("job failed", extra={"job_id": str(job_id), "detail": error})
+        logger.warning(
+            "job dead-lettered",
+            extra={"job_id": str(job_id), "attempts": current.attempts, "detail": error},
+        )
         return record
 
     def cancel(self, job_id: UUID) -> JobRecord:

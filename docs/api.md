@@ -47,6 +47,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `GET` | `/api/v1/registry/experiments/{id}` | Imported envelope |
 | `GET` | `/api/v1/registry/journal` | Append-only metadata audit/export stream |
 | `POST` | `/api/v1/registry/journal/replay` | Rebuild the in-memory index from stored metadata |
+| `POST` | `/api/v1/registry/artifacts/gc` | Delete artifact files no retained record references |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
@@ -188,6 +189,9 @@ Worker는 runtime handle을 전달받지 않습니다. 공유 metadata store에�
 평가할 수 없습니다. 이 구조가 성립하려면 metadata가 공유되어야 하므로 `redis` job backend는
 `postgresql` metadata backend와 함께 씁니다.
 
+실패한 job은 `AISHIELD_JOB_MAX_ATTEMPTS`(기본 1)까지 재시도합니다. 재시도가 소진되면
+FAILED로 dead-letter되어 job 목록에 조회 가능한 증거로 남습니다(사라지지 않습니다).
+
 Job 상태 전이는 두 프로세스가 각각 자신이 관찰한 것을 metadata store에 기록합니다
 (API가 `queued`, worker가 `running`/`succeeded`/`failed`).
 
@@ -241,9 +245,13 @@ curl -X POST http://localhost:8000/api/v1/registry/remote-attacks -H 'Content-Ty
 A separate track from the image attacks, with its own threat model and metrics —
 no perturbation norm, no accuracy on a labelled set. It probes a remote LLM
 endpoint for prompt injection: a secret canary is planted in the system prompt,
-inputs try to make the model leak it or follow an injected instruction, and a
-detector decides per probe whether the target held. The aggregate is an injection
-success rate by category, not robust accuracy.
+inputs try to make the model leak it, follow an injected instruction, or yield to a
+jailbreak framing — including multi-turn attacks that steer across several turns
+before the ask — and a detector (obfuscation-aware) decides per probe whether the
+target held. Each probe records how many turns it took and whether the final reply
+read as a refusal (an auxiliary signal, never used to decide success). Multi-turn
+conversations are sent as a `messages` array. The aggregate is an injection success
+rate by category, not robust accuracy.
 
 These are diagnostic instruments for a model you operate, not an exploit library:
 the probe texts are generic and benign, and the value is the detector telling you
@@ -330,6 +338,18 @@ docker build -f docker/api.Dockerfile \
 AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile gpu-worker up --build
 ```
+
+## Artifact garbage collection
+
+`POST /api/v1/registry/artifacts/gc` reclaims artifact files that no retained
+baseline or model references any more — a checkpoint for an evicted model, a
+directory for a baseline no longer held, or an interrupted `.tmp` write. It never
+removes a file a live record points to, never follows symlinks, and never touches
+the append-only journal. Pass `dry_run=true` to preview what would be removed
+(files, directories, reclaimed bytes) without deleting.
+
+Bounding the record set itself — as opposed to orphaned files — is a separate,
+backend-level concern the append-only journal deliberately leaves alone.
 
 ## Concurrency boundary
 

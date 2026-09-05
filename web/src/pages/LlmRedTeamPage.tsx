@@ -8,6 +8,7 @@ const CATEGORY_LABEL: Record<ProbeCategory, string> = {
   system_prompt_leak: "System-prompt 유출",
   instruction_override: "명령 override",
   jailbreak: "Jailbreak 프레이밍",
+  multi_turn: "Multi-turn",
 };
 
 export function LlmRedTeamPage({
@@ -116,7 +117,11 @@ export function LlmRedTeamPage({
                       <Icon name={probe.succeeded ? "close" : "check"} size={13} />
                       <span>
                         <b>{probe.probe_id}</b>
-                        <small>{probe.detail}</small>
+                        <small>
+                          {probe.detail}
+                          {probe.turns > 1 ? ` · ${probe.turns}턴` : ""}
+                          {probe.refused ? " · 거부함" : ""}
+                        </small>
                       </span>
                     </div>
                   ))}

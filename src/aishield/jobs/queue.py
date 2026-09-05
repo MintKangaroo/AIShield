@@ -43,6 +43,7 @@ class JobQueue:
         *,
         max_pending: int = DEFAULT_MAX_PENDING,
         retained_jobs: int = DEFAULT_RETAINED_JOBS,
+        max_attempts: int = 1,
         observer: JobObserver | None = None,
     ) -> None:
         if max_workers < 1:
@@ -51,13 +52,17 @@ class JobQueue:
             raise ValueError("max_pending must be at least 1")
         if retained_jobs < 1:
             raise ValueError("retained_jobs must be at least 1")
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
         self._run_task = executor
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="aishield")
         self._jobs: dict[UUID, JobRecord] = {}
         self._futures: dict[UUID, Future[UUID | None]] = {}
         self._max_pending = max_pending
         self._retained_jobs = retained_jobs
+        self._max_attempts = max_attempts
         self._observer = observer
+        self._tasks: dict[UUID, TaskDescriptor] = {}
         self._lock = RLock()
 
     @property
@@ -84,6 +89,7 @@ class JobQueue:
                     f"retry once one completes"
                 )
             self._jobs[job.id] = job
+            self._tasks[job.id] = task
             self._evict_terminal_jobs()
         self._publish(job)
         logger.info("job queued", extra={"job_id": str(job.id), "job_kind": kind})
@@ -94,8 +100,15 @@ class JobQueue:
         return job
 
     def _run(self, job_id: UUID, task: TaskDescriptor) -> UUID | None:
-        started = self._transition(job_id, status=JobStatus.RUNNING, started_at=datetime.now(UTC))
-        logger.info("job started", extra={"job_id": str(job_id), "job_kind": started.kind})
+        with self._lock:
+            attempts = self._jobs[job_id].attempts + 1
+        started = self._transition(
+            job_id, status=JobStatus.RUNNING, started_at=datetime.now(UTC), attempts=attempts
+        )
+        logger.info(
+            "job started",
+            extra={"job_id": str(job_id), "job_kind": started.kind, "attempt": attempts},
+        )
         return self._run_task(task)
 
     def _finish(self, job_id: UUID, future: Future[UUID | None]) -> None:
@@ -108,13 +121,37 @@ class JobQueue:
             record = self._transition(job_id, status=JobStatus.CANCELLED, finished_at=finished_at)
             logger.info("job cancelled", extra={"job_id": str(job_id), "job_kind": record.kind})
         except Exception as error:  # noqa: BLE001 - persist worker failure as job evidence
+            with self._lock:
+                attempts = self._jobs[job_id].attempts
+                task = self._tasks.get(job_id)
+            if task is not None and attempts < self._max_attempts:
+                # Retry: requeue the same task; a dead-letter only after exhaustion.
+                record = self._transition(job_id, status=JobStatus.QUEUED, error=str(error))
+                logger.warning(
+                    "job failed; retrying",
+                    extra={
+                        "job_id": str(job_id),
+                        "job_kind": record.kind,
+                        "attempt": attempts,
+                        "max_attempts": self._max_attempts,
+                    },
+                )
+                self._publish(record)
+                future = self._executor.submit(self._run, job_id, task)
+                with self._lock:
+                    self._futures[job_id] = future
+                future.add_done_callback(lambda completed: self._finish(job_id, completed))
+                return
             record = self._transition(
                 job_id,
                 status=JobStatus.FAILED,
                 error=str(error),
                 finished_at=finished_at,
             )
-            logger.exception("job failed", extra={"job_id": str(job_id), "job_kind": record.kind})
+            logger.exception(
+                "job dead-lettered",
+                extra={"job_id": str(job_id), "job_kind": record.kind, "attempts": attempts},
+            )
         else:
             record = self._transition(
                 job_id,

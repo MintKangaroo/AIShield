@@ -8,6 +8,7 @@ import type {
   DatasetRecord,
   DefenseRequest,
   DefenseRunRecord,
+  ArtifactGcReport,
   ExperimentResult,
   HealthResponse,
   JobRecord,
@@ -103,6 +104,8 @@ export const api = {
   job: (jobId: string) => request<JobRecord>(`${registryPath}/jobs/${jobId}`),
   journal: () => request<JournalEntry[]>(`${registryPath}/journal`),
   replayJournal: () => post<JournalReplaySummary>(`${registryPath}/journal/replay`),
+  collectArtifactGarbage: (dryRun: boolean) =>
+    post<ArtifactGcReport>(`${registryPath}/artifacts/gc?dry_run=${dryRun}`),
   experiments: () => request<ExperimentResult[]>(`${registryPath}/experiments`),
   importExperiment: (envelope: ExperimentResult) =>
     post<ExperimentResult>(`${registryPath}/experiments`, envelope),

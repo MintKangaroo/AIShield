@@ -14,11 +14,21 @@ from urllib.parse import urlparse
 
 from aishield.registry.errors import RegistryError
 
-#: request:  {"format": "aishield.llm-chat.v1", "system": "...", "prompt": "..."}
-#: response: {"completion": "..."}
+#: single turn:  {"format": "aishield.llm-chat.v1", "system": "...", "prompt": "..."}
+#: multi turn:   {"format": "aishield.llm-chat.v1", "system": "...",
+#:                "messages": [{"role": "user"|"assistant", "content": "..."}]}
+#: response:     {"completion": "..."}
 REQUEST_FORMAT = "aishield.llm-chat.v1"
 #: Hard cap on a completion we will read, so a hostile endpoint cannot flood us.
 MAX_COMPLETION_CHARS = 100_000
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    """One turn of a conversation sent to the model."""
+
+    role: str  # "user" or "assistant"
+    content: str
 
 
 @dataclass(frozen=True)
@@ -46,9 +56,23 @@ class RemoteLlm:
     def complete(self, system: str, prompt: str) -> str:
         """Return the model's completion for one (system, prompt) turn."""
 
-        payload = json.dumps({"format": REQUEST_FORMAT, "system": system, "prompt": prompt}).encode(
-            "utf-8"
-        )
+        return self.chat(system, [ChatMessage("user", prompt)])
+
+    def chat(self, system: str, messages: list["ChatMessage"]) -> str:
+        """Return the model's completion given a conversation history.
+
+        A single user turn is sent as ``prompt`` so a single-turn endpoint keeps
+        working; multi-turn conversations are sent as ``messages``.
+        """
+
+        if not messages or messages[-1].role != "user":
+            raise RegistryError("a chat turn must end with a user message")
+        body_json: dict[str, object] = {"format": REQUEST_FORMAT, "system": system}
+        if len(messages) == 1:
+            body_json["prompt"] = messages[0].content
+        else:
+            body_json["messages"] = [{"role": m.role, "content": m.content} for m in messages]
+        payload = json.dumps(body_json).encode("utf-8")
         request = urllib.request.Request(  # noqa: S310 - scheme validated in __init__
             self._endpoint.url,
             data=payload,

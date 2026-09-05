@@ -19,6 +19,11 @@ const CATEGORIES: Array<{ id: ProbeCategory; label: string; hint: string }> = [
     label: "Jailbreak 프레이밍",
     hint: "roleplay·가정·developer-mode 프레이밍이 거부를 우회하는가?",
   },
+  {
+    id: "multi_turn",
+    label: "Multi-turn",
+    hint: "여러 턴에 걸쳐 서서히 유도한 뒤 비밀을 추출하는가? (대화 수준)",
+  },
 ];
 
 export function LlmRedTeamForm({

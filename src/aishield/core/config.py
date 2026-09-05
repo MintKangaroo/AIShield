@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     job_backend: Literal["inprocess", "redis"] = "inprocess"
     job_max_workers: int = Field(default=2, ge=1, le=32)
     job_max_pending: int = Field(default=16, ge=1, le=1024)
+    # Total execution attempts per job before it is dead-lettered as FAILED. 1 = no retry.
+    job_max_attempts: int = Field(default=1, ge=1, le=10)
     job_retained_records: int = Field(default=256, ge=1, le=100_000)
     # Upper bound on how long a queued worker waits for a run slot before failing.
     job_slot_timeout_seconds: float = Field(default=900.0, gt=0.0, le=86_400.0)
