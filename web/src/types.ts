@@ -409,7 +409,7 @@ export interface RemoteAttackRunRecord {
   dataset_id: string;
   dataset_manifest_sha256: string;
   config: {
-    algorithm: "square";
+    algorithm: "square" | "boundary";
     norm: "linf";
     epsilon: number;
     max_queries: number;
@@ -438,6 +438,8 @@ export interface RemoteAttackRequest {
   endpoint_url: string;
   num_classes: number;
   dataset_id: string;
+  algorithm: "square" | "boundary";
+  returns: "scores" | "labels";
   authorized: boolean;
   epsilon: number;
   max_queries: number;

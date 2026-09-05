@@ -108,7 +108,10 @@ class AttackRunRecord(RegistryModel):
 class RemoteAttackConfig(RegistryModel):
     """Bounded query-based black-box attack against a remote endpoint."""
 
-    algorithm: Literal["square"] = "square"
+    # "square" is score-based (needs a scores endpoint); "boundary" is
+    # decision-based and needs only predicted labels (the harder, more realistic
+    # case for a deployed classifier).
+    algorithm: Literal["square", "boundary"] = "square"
     norm: Literal["linf"] = "linf"
     epsilon: float = Field(gt=0.0, le=1.0)
     max_queries: int = Field(gt=0, le=100_000)

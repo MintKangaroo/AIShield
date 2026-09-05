@@ -4,6 +4,8 @@ The attack must reduce accuracy using only oracle scores, never exceed the
 L-infinity bound, count every query, and behave deterministically for a seed.
 """
 
+from collections.abc import Callable
+
 import torch
 
 from aishield.attacks.blackbox import evaluate_black_box, run_square_attack
@@ -189,3 +191,118 @@ def test_bad_inputs_and_budgets_are_rejected() -> None:
     except ValueError:
         return
     raise AssertionError("expected a zero query budget to be rejected")
+
+
+# --- decision-based (label-only) attack --------------------------------------
+
+
+def _decision(oracle: QuadrantOracle) -> Callable[[torch.Tensor], torch.Tensor]:
+    def labels(images: torch.Tensor) -> torch.Tensor:
+        return oracle(images).argmax(dim=1)
+
+    return labels
+
+
+def test_decision_attack_leaves_a_strong_model_correct_within_a_tiny_bound() -> None:
+    from aishield.attacks.blackbox import run_decision_attack
+
+    oracle = _decision(QuadrantOracle())
+    images, labels = _quadrant_batch(16, signal=0.6, seed=1)
+
+    adversarial, queries = run_decision_attack(
+        oracle,
+        images,
+        labels,
+        epsilon=0.05,
+        max_queries=200,
+        generator=torch.Generator().manual_seed(3),
+    )
+
+    assert float((adversarial - images).abs().amax()) <= 0.05 + 1e-6
+    assert queries > 0
+    assert bool((oracle(adversarial) == labels).all())
+
+
+def test_decision_attack_flips_labels_when_the_budget_allows() -> None:
+    from aishield.attacks.blackbox import run_decision_attack
+
+    oracle = _decision(QuadrantOracle())
+    images, labels = _quadrant_batch(24, signal=0.35, seed=2)
+
+    adversarial, _ = run_decision_attack(
+        oracle,
+        images,
+        labels,
+        epsilon=0.6,
+        max_queries=1200,
+        generator=torch.Generator().manual_seed(5),
+    )
+
+    # Decision-based search is weaker than a score-based attack and budget-limited,
+    # so the honest claim is a strong majority flipped, not every sample.
+    flipped = int((oracle(adversarial) != labels).sum())
+    assert flipped >= 18
+    assert float((adversarial - images).abs().amax()) <= 0.6 + 1e-6
+
+
+def test_decision_attack_is_deterministic_for_a_seed() -> None:
+    from aishield.attacks.blackbox import run_decision_attack
+
+    oracle = _decision(QuadrantOracle())
+    images, labels = _quadrant_batch(12, signal=0.35, seed=4)
+
+    first, fq = run_decision_attack(
+        oracle,
+        images,
+        labels,
+        epsilon=0.5,
+        max_queries=200,
+        generator=torch.Generator().manual_seed(9),
+    )
+    second, sq = run_decision_attack(
+        oracle,
+        images,
+        labels,
+        epsilon=0.5,
+        max_queries=200,
+        generator=torch.Generator().manual_seed(9),
+    )
+
+    assert torch.equal(first, second)
+    assert fq == sq
+
+
+def test_decision_evaluate_uses_only_labels_and_reports_queries() -> None:
+    from aishield.attacks.blackbox import evaluate_black_box_decision
+
+    oracle = _decision(QuadrantOracle())
+    images, labels = _quadrant_batch(20, signal=0.35, seed=6)
+
+    result = evaluate_black_box_decision(
+        oracle, [(images, labels)], epsilon=0.6, max_queries=400, seed=7
+    )
+
+    assert len(result.adversarial_predictions) == 20
+    assert result.total_queries > 20
+    assert result.maximum_observed_linf <= 0.6 + 1e-6
+
+
+def test_decision_oracle_returning_wrong_shape_is_rejected() -> None:
+    from aishield.attacks.blackbox import run_decision_attack
+
+    def bad(images: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(images.shape[0], 2)  # 2-D, not (N,)
+
+    images, labels = _quadrant_batch(4, signal=0.35, seed=1)
+    try:
+        run_decision_attack(
+            bad,
+            images,
+            labels,
+            epsilon=0.3,
+            max_queries=20,
+            generator=torch.Generator().manual_seed(1),
+        )
+    except ValueError:
+        return
+    raise AssertionError("expected a wrong-shaped decision oracle to be rejected")

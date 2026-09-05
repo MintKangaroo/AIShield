@@ -15,7 +15,11 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from aishield.attacks.blackbox import evaluate_black_box, prediction_fingerprint
+from aishield.attacks.blackbox import (
+    evaluate_black_box,
+    evaluate_black_box_decision,
+    prediction_fingerprint,
+)
 from aishield.attacks.contracts import (
     RemoteAttackConfig,
     RemoteAttackMetrics,
@@ -87,14 +91,31 @@ def run_remote_attack(
     classifier = RemoteImageClassifier(endpoint)
     batches = _batches(dataset_bundle, config)
 
-    result = evaluate_black_box(
-        classifier.score,
-        batches,
-        epsilon=config.epsilon,
-        max_queries=config.max_queries,
-        num_classes=endpoint.num_classes,
-        seed=config.seed,
-    )
+    if config.algorithm == "boundary":
+        # Decision-based: needs only predicted labels, so it works against a
+        # scores endpoint (via argmax) or a label-only endpoint.
+        result = evaluate_black_box_decision(
+            classifier.predict_labels,
+            batches,
+            epsilon=config.epsilon,
+            max_queries=config.max_queries,
+            seed=config.seed,
+        )
+    else:
+        # Score-based Square needs per-class scores.
+        if endpoint.returns != "scores":
+            raise RegistryError(
+                "the square attack needs a scores endpoint; use the boundary attack "
+                "for a label-only endpoint"
+            )
+        result = evaluate_black_box(
+            classifier.score,
+            batches,
+            epsilon=config.epsilon,
+            max_queries=config.max_queries,
+            num_classes=endpoint.num_classes,
+            seed=config.seed,
+        )
 
     total = len(result.targets)
     clean_correct = sum(

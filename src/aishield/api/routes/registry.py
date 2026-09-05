@@ -203,6 +203,10 @@ class RemoteAttackRequest(RequestModel):
     endpoint_url: str = Field(min_length=1, max_length=2048)
     num_classes: int = Field(gt=1, le=100_000)
     dataset_id: UUID
+    # "square" (score-based) or "boundary" (decision-based, label-only).
+    algorithm: Literal["square", "boundary"] = "square"
+    # What the endpoint returns: "scores" or "labels".
+    returns: Literal["scores", "labels"] = "scores"
     # The operator must state, per request, that they are authorized to test this
     # target. It is deliberately not defaulted to true.
     authorized: bool = False
@@ -646,6 +650,7 @@ def run_remote_attack(
     endpoint = RemoteEndpoint(
         url=payload.endpoint_url,
         num_classes=payload.num_classes,
+        returns=payload.returns,
         timeout_seconds=payload.timeout_seconds,
         auth_header=payload.auth_header,
         auth_value=payload.auth_value,
@@ -655,6 +660,7 @@ def run_remote_attack(
             payload.dataset_id,
             endpoint,
             config=RemoteAttackConfig(
+                algorithm=payload.algorithm,
                 epsilon=payload.epsilon,
                 max_queries=payload.max_queries,
                 seed=payload.seed,
