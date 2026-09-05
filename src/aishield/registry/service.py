@@ -62,6 +62,7 @@ from aishield.registry.errors import (
 )
 from aishield.registry.evaluation import evaluate_registered_model
 from aishield.registry.experiment import build_experiment_result
+from aishield.registry.gc import GcReport, collect_orphan_artifacts, uri_to_path
 from aishield.registry.models import ModelBundle, SmallCNNAdapter, TorchvisionPretrainedAdapter
 from aishield.registry.replay import JournalReplaySummary, group_entries
 from aishield.registry.store import MetadataStore, build_metadata_store
@@ -806,6 +807,28 @@ class RegistryService:
 
         self._store.check_ready()
         self._jobs.check_ready()
+
+    def collect_artifact_garbage(self, *, dry_run: bool = False) -> GcReport:
+        """Delete artifact files no retained baseline or model references.
+
+        Reference set: every retained baseline's artifacts and every retained
+        model's checkpoint. Anything else under the artifact root's models/ and
+        baselines/ trees is an orphan — a checkpoint for an evicted model, a
+        directory for a baseline no longer held, or an interrupted temp write.
+        """
+
+        with self._lock:
+            referenced: set[Path] = set()
+            for baseline in self._baselines.values():
+                for artifact in baseline.artifacts:
+                    path = uri_to_path(artifact.uri)
+                    if path is not None:
+                        referenced.add(path)
+            for bundle in self._models.values():
+                path = uri_to_path(bundle.record.artifact.uri)
+                if path is not None:
+                    referenced.add(path)
+        return collect_orphan_artifacts(self.settings.artifact_root, referenced, dry_run=dry_run)
 
     def shutdown(self) -> None:
         """Stop background workers and release the metadata store's resources."""

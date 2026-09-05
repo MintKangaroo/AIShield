@@ -308,8 +308,9 @@ npm --prefix web ci
 3. run-to-run 비교와 sample triplet dashboard UI
 4. black-box/white-box masking diagnostics 및 independent numerical fixtures
 5. CI에 `pip-audit`/`npm audit`, Dependabot, 프론트엔드 ESLint 추가
-6. Artifact garbage-collection 정책 — metadata store는 무한히 늘어나고 model checkpoint도
-   정리되지 않습니다
+6. (완료) Artifact garbage collection — orphan sweep. retained record가 참조하지 않는
+   checkpoint·baseline 디렉터리·.tmp만 삭제(현재 레코드는 불변), dry-run 미리보기 제공.
+   레코드 집합 자체의 상한은 append-only 저널 특성상 별도 backend 과제로 남김
 7. Worker의 dead-letter 처리 — 현재 실패한 job은 기록만 되고 재시도하지 않습니다
 
 세부 범위는 `docs/roadmap.md`를 기준으로 합니다. 새 기능은 numerical unit test, API

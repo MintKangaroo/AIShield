@@ -236,6 +236,18 @@ class LlmRedTeamRequest(RequestModel):
     auth_value: str | None = Field(default=None, max_length=4096)
 
 
+class ArtifactGcResponse(BaseModel):
+    """Summary of an artifact garbage-collection sweep."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dry_run: bool
+    removed_files: list[str]
+    removed_dirs: list[str]
+    reclaimed_bytes: int
+    skipped: list[str]
+
+
 def get_registry(request: Request) -> RegistryService:
     """Resolve the process-local registry from application state."""
 
@@ -882,6 +894,24 @@ def get_experiment(experiment_id: UUID, registry: RegistryDependency) -> Experim
 )
 def replay_journal(registry: RegistryDependency) -> JournalReplaySummary:
     return registry.replay_journal()
+
+
+@router.post(
+    "/artifacts/gc",
+    response_model=ArtifactGcResponse,
+    summary="Delete artifact files no retained record references",
+)
+def collect_artifact_garbage(
+    registry: RegistryDependency, dry_run: bool = False
+) -> ArtifactGcResponse:
+    report = registry.collect_artifact_garbage(dry_run=dry_run)
+    return ArtifactGcResponse(
+        dry_run=report.dry_run,
+        removed_files=report.removed_files,
+        removed_dirs=report.removed_dirs,
+        reclaimed_bytes=report.reclaimed_bytes,
+        skipped=report.skipped,
+    )
 
 
 @router.get(

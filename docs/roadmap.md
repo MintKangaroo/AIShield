@@ -47,7 +47,7 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
    - ✅ Redis-backed job queue and out-of-process evaluation worker
    - ✅ CPU/CUDA worker images pinned by digest, with the deployed digest recorded
      in every evidence envelope
-   - artifact garbage-collection policy
+   - ✅ artifact garbage collection: orphan sweep with a dry-run preview
    - worker dead-letter handling
 
 10. **Transparent robustness score**

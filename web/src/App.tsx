@@ -33,6 +33,7 @@ import type {
   BaselineRunRecord,
   BaselineVerification,
   DatasetRecord,
+  ArtifactGcReport,
   DefenseRequest,
   JournalReplaySummary,
   LlmRedTeamRequest,
@@ -162,6 +163,7 @@ function App() {
   const [scoreSelection, setScoreSelection] = useState<ReadonlySet<string>>(new Set());
   const [score, setScore] = useState<RobustnessScore | null>(null);
   const [replaySummary, setReplaySummary] = useState<JournalReplaySummary | null>(null);
+  const [gcReport, setGcReport] = useState<ArtifactGcReport | null>(null);
   const [dialog, setDialog] = useState<DialogName>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -341,6 +343,13 @@ function App() {
       () => api.downloadArtifact(baselineId, artifactId, filename),
       "아티팩트를 내려받았습니다.",
     );
+  }
+
+  async function collectGarbage(dryRun: boolean) {
+    await perform(async () => {
+      setGcReport(await api.collectArtifactGarbage(dryRun));
+      if (!dryRun) await refresh(true);
+    }, dryRun ? "정리 미리보기를 계산했습니다." : "아티팩트를 정리했습니다.");
   }
 
   async function replayJournal() {
@@ -720,7 +729,9 @@ function App() {
           <JournalPage
             busy={busy}
             entries={journal}
+            gcReport={gcReport}
             summary={replaySummary}
+            onCollectGarbage={(dryRun) => void collectGarbage(dryRun)}
             onReplay={() => void replayJournal()}
           />
         )}

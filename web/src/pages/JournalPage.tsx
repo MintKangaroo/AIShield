@@ -1,15 +1,25 @@
 import { Icon } from "../components/Icon";
 import { JournalTable } from "../components/JournalTable";
-import type { JournalEntry, JournalReplaySummary } from "../types";
+import type { ArtifactGcReport, JournalEntry, JournalReplaySummary } from "../types";
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function JournalPage({
   busy,
   entries,
+  gcReport,
+  onCollectGarbage,
   onReplay,
   summary,
 }: {
   busy: boolean;
   entries: JournalEntry[];
+  gcReport: ArtifactGcReport | null;
+  onCollectGarbage: (dryRun: boolean) => void;
   onReplay: () => void;
   summary: JournalReplaySummary | null;
 }) {
@@ -92,6 +102,56 @@ export function JournalPage({
         ) : (
           <p className="score-hint">
             재생은 이 저널에서 메모리 인덱스를 재구성합니다. 실행 증거는 항상 복구되고, 데이터셋·모델 핸들은 디스크 파일 해시가 기록된 정체성과 일치할 때만 재구성되며, 죽은 프로세스의 큐잉된 작업은 되살리지 않습니다.
+          </p>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="kicker">저장소 정리</span>
+            <h3>아티팩트 정리 (GC)</h3>
+          </div>
+          <div className="top-actions">
+            <button
+              className="button ghost compact"
+              disabled={busy}
+              type="button"
+              onClick={() => onCollectGarbage(true)}
+            >
+              <Icon name="refresh" size={15} /> 미리보기
+            </button>
+            <button
+              className="button secondary compact"
+              disabled={busy}
+              type="button"
+              onClick={() => onCollectGarbage(false)}
+            >
+              <Icon name="archive" size={15} /> 정리 실행
+            </button>
+          </div>
+        </div>
+        {gcReport ? (
+          <dl className="score-facts replay-facts">
+            <div>
+              <dt>{gcReport.dry_run ? "정리 예정" : "정리됨"}</dt>
+              <dd>{gcReport.removed_files.length + gcReport.removed_dirs.length}개</dd>
+            </div>
+            <div>
+              <dt>회수 용량</dt>
+              <dd>{formatBytes(gcReport.reclaimed_bytes)}</dd>
+            </div>
+            <div>
+              <dt>건너뜀</dt>
+              <dd>{gcReport.skipped.length}개</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="score-hint">
+            어떤 retained record도 참조하지 않는 아티팩트(제거된 모델의 checkpoint, 남은 임시
+            파일, 더 이상 보관하지 않는 baseline 디렉터리)만 삭제합니다. 현재 레코드가 가리키는
+            파일은 절대 건드리지 않으며, append-only 저널도 그대로 둡니다. 먼저 미리보기로
+            확인하세요.
           </p>
         )}
       </section>

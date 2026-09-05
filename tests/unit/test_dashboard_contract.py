@@ -44,8 +44,12 @@ def _served_paths() -> set[str]:
 
 
 def _normalise(path: str) -> str:
-    """Reduce both a TS interpolation and an OpenAPI parameter to one placeholder."""
+    """Reduce both a TS interpolation and an OpenAPI parameter to one placeholder.
 
+    A query string is not part of the OpenAPI path, so it is dropped first.
+    """
+
+    path = path.split("?", 1)[0]
     return re.sub(r"\$\{[^}]+\}", "{X}", re.sub(r"\{[^}]+\}", "{X}", path))
 
 

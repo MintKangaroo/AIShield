@@ -47,6 +47,7 @@ AIShield의 endpoint는 `/api/v1` 아래에 있습니다.
 | `GET` | `/api/v1/registry/experiments/{id}` | Imported envelope |
 | `GET` | `/api/v1/registry/journal` | Append-only metadata audit/export stream |
 | `POST` | `/api/v1/registry/journal/replay` | Rebuild the in-memory index from stored metadata |
+| `POST` | `/api/v1/registry/artifacts/gc` | Delete artifact files no retained record references |
 
 Request body는 `extra="forbid"`로 처리하므로 알 수 없는 field와 parameter typo는 422로
 거부됩니다. Domain policy/compatibility 오류는 400, 존재하지 않는 registry identity는
@@ -334,6 +335,18 @@ docker build -f docker/api.Dockerfile \
 AISHIELD_METADATA_BACKEND=postgresql AISHIELD_JOB_BACKEND=redis \
   docker compose --profile gpu-worker up --build
 ```
+
+## Artifact garbage collection
+
+`POST /api/v1/registry/artifacts/gc` reclaims artifact files that no retained
+baseline or model references any more — a checkpoint for an evicted model, a
+directory for a baseline no longer held, or an interrupted `.tmp` write. It never
+removes a file a live record points to, never follows symlinks, and never touches
+the append-only journal. Pass `dry_run=true` to preview what would be removed
+(files, directories, reclaimed bytes) without deleting.
+
+Bounding the record set itself — as opposed to orphaned files — is a separate,
+backend-level concern the append-only journal deliberately leaves alone.
 
 ## Concurrency boundary
 

@@ -503,3 +503,11 @@ export interface LlmRedTeamRequest {
   auth_header?: string | null;
   auth_value?: string | null;
 }
+
+export interface ArtifactGcReport {
+  dry_run: boolean;
+  removed_files: string[];
+  removed_dirs: string[];
+  reclaimed_bytes: number;
+  skipped: string[];
+}
