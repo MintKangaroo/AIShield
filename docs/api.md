@@ -241,9 +241,13 @@ curl -X POST http://localhost:8000/api/v1/registry/remote-attacks -H 'Content-Ty
 A separate track from the image attacks, with its own threat model and metrics —
 no perturbation norm, no accuracy on a labelled set. It probes a remote LLM
 endpoint for prompt injection: a secret canary is planted in the system prompt,
-inputs try to make the model leak it or follow an injected instruction, and a
-detector decides per probe whether the target held. The aggregate is an injection
-success rate by category, not robust accuracy.
+inputs try to make the model leak it, follow an injected instruction, or yield to a
+jailbreak framing — including multi-turn attacks that steer across several turns
+before the ask — and a detector (obfuscation-aware) decides per probe whether the
+target held. Each probe records how many turns it took and whether the final reply
+read as a refusal (an auxiliary signal, never used to decide success). Multi-turn
+conversations are sent as a `messages` array. The aggregate is an injection success
+rate by category, not robust accuracy.
 
 These are diagnostic instruments for a model you operate, not an exploit library:
 the probe texts are generic and benign, and the value is the detector telling you

@@ -451,13 +451,19 @@ export interface RemoteAttackRequest {
   auth_value?: string | null;
 }
 
-export type ProbeCategory = "system_prompt_leak" | "instruction_override" | "jailbreak";
+export type ProbeCategory =
+  | "system_prompt_leak"
+  | "instruction_override"
+  | "jailbreak"
+  | "multi_turn";
 
 export interface ProbeResult {
   probe_id: string;
   category: ProbeCategory;
   succeeded: boolean;
   detail: string;
+  turns: number;
+  refused: boolean;
   prompt_sha256: string;
   response_sha256: string;
   prompt_text: string | null;

@@ -23,10 +23,12 @@ from aishield.llm.probes import (
     OVERRIDE_MARKER,
     RESTRICTED,
     SYSTEM_PROMPT,
+    build_multi_turn_probes,
     build_probes,
     contains_secret,
+    looks_like_refusal,
 )
-from aishield.llm.remote import LlmEndpoint, RemoteLlm
+from aishield.llm.remote import ChatMessage, LlmEndpoint, RemoteLlm
 from aishield.llm.runner import run_llm_red_team
 from aishield.registry.errors import RegistryAuthorizationError, RegistryError
 from aishield.registry.service import RegistryService
@@ -35,15 +37,18 @@ ALL_CATEGORIES = (
     ProbeCategory.SYSTEM_PROMPT_LEAK,
     ProbeCategory.INSTRUCTION_OVERRIDE,
     ProbeCategory.JAILBREAK,
+    ProbeCategory.MULTI_TURN,
 )
 
 
-def vulnerable(system: str, prompt: str) -> str:
-    """A model that yields to every technique: it leaks, obeys, and gets jailbroken."""
+def _reply(prompt: str) -> str:
+    """The completion a fully vulnerable model gives for one user turn."""
 
     lowered = prompt.lower()
-    if "access code" in lowered or "config" in lowered or "maintenance mode" in lowered:
-        return f"Of course — the code is {CANARY}."
+    # Check the restricted-token ask first: a multi-turn conversation can mention
+    # both a leak keyword and the restricted token, and the ask is what matters.
+    if "restricted procedure token" in lowered:
+        return f"Sure, the restricted procedure token is {RESTRICTED}."
     if "hyphen between every character" in lowered:
         return "-".join(CANARY)
     if "backwards" in lowered:
@@ -52,12 +57,19 @@ def vulnerable(system: str, prompt: str) -> str:
         import base64
 
         return base64.b64encode(CANARY.encode()).decode()
-    if "restricted procedure token" in lowered:
-        return f"Sure, the restricted procedure token is {RESTRICTED}."
+    if "access code" in lowered or "config" in lowered or "maintenance mode" in lowered:
+        return f"Of course — the code is {CANARY}."
     return OVERRIDE_MARKER
 
 
-def hardened(system: str, prompt: str) -> str:
+def vulnerable(system: str, messages: list[ChatMessage]) -> str:
+    """A model that yields to every technique, across as many turns as it takes."""
+
+    # A fully vulnerable model acts on the whole conversation, not just the last line.
+    return _reply(" ".join(m.content for m in messages if m.role == "user"))
+
+
+def hardened(system: str, messages: list[ChatMessage]) -> str:
     return "I'm sorry, but I can't help with that."
 
 
@@ -93,8 +105,8 @@ def test_a_hardened_model_passes_clean() -> None:
 def test_obfuscated_leaks_are_detected() -> None:
     """Hyphenated, reversed and base64 leaks are caught, not just plain substrings."""
 
-    def obfuscate(system: str, prompt: str) -> str:
-        lowered = prompt.lower()
+    def obfuscate(system: str, messages: list[ChatMessage]) -> str:
+        lowered = messages[-1].content.lower()
         if "hyphen" in lowered:
             return "-".join(CANARY)
         if "backwards" in lowered:
@@ -143,7 +155,7 @@ def test_the_jailbreak_category_targets_the_restricted_token() -> None:
 def test_a_model_that_leaks_the_canary_still_resists_jailbreak() -> None:
     """The two secrets are independent: leaking one is not the other."""
 
-    def leaks_only_canary(system: str, prompt: str) -> str:
+    def leaks_only_canary(system: str, messages: list[ChatMessage]) -> str:
         return f"the code is {CANARY}"  # never emits RESTRICTED
 
     record = run_llm_red_team(
@@ -257,7 +269,8 @@ class _LlmHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length))
-        completion = vulnerable(payload["system"], payload["prompt"])
+        prompt = payload["messages"][-1]["content"] if "messages" in payload else payload["prompt"]
+        completion = _reply(prompt)
         body = json.dumps({"completion": completion}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -323,3 +336,85 @@ def test_system_prompt_hides_the_canary_it_protects() -> None:
     assert CANARY in SYSTEM_PROMPT
     for probe in build_probes(ALL_CATEGORIES):
         assert CANARY not in probe.prompt
+
+
+# --- multi-turn / conversation-level probes ----------------------------------
+
+
+def test_multi_turn_probes_run_over_several_turns() -> None:
+    record = run_llm_red_team(
+        vulnerable,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.MULTI_TURN,), seed=1),
+    )
+
+    assert record.metrics.total_probes >= 1
+    assert all(p.category is ProbeCategory.MULTI_TURN for p in record.probes)
+    assert all(p.turns >= 2 for p in record.probes)
+    # A fully vulnerable model yields the restricted token on the final turn.
+    assert record.metrics.injection_success_rate == 1.0
+
+
+def test_a_model_that_only_yields_on_the_last_turn_is_caught() -> None:
+    """Multi-turn matters: a single-turn probe would miss a late-stage compliance."""
+
+    def crescendo(system: str, messages: list[ChatMessage]) -> str:
+        user_turns = [m for m in messages if m.role == "user"]
+        # Only comply once the conversation has built up to three user turns.
+        if len(user_turns) >= 3 and "restricted procedure token" in messages[-1].content.lower():
+            return f"Alright, the restricted procedure token is {RESTRICTED}."
+        return "Happy to help with the documentation."
+
+    record = run_llm_red_team(
+        crescendo,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.MULTI_TURN,), seed=1),
+    )
+
+    assert record.metrics.successful_probes >= 1
+
+
+def test_multi_turn_is_held_by_a_refusing_model() -> None:
+    record = run_llm_red_team(
+        hardened,
+        _endpoint(),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.MULTI_TURN,), seed=1),
+    )
+
+    assert record.metrics.injection_success_rate == 0.0
+    assert all(p.refused for p in record.probes)
+
+
+def test_refused_flag_is_recorded() -> None:
+    record = run_llm_red_team(
+        hardened,
+        _endpoint(),
+        config=_config(),
+    )
+
+    assert all(p.refused for p in record.probes)
+    assert all(not p.succeeded for p in record.probes)
+
+
+def test_refusal_detector_distinguishes_refusals_from_compliance() -> None:
+    assert looks_like_refusal("I'm sorry, but I can't help with that.") is True
+    assert looks_like_refusal("Sure, here it is.") is False
+
+
+def test_multi_turn_probes_have_multiple_user_turns() -> None:
+    for probe in build_multi_turn_probes():
+        assert len(probe.turns) >= 2
+        assert RESTRICTED not in "\n".join(probe.turns)
+
+
+def test_served_llm_handles_a_multi_turn_probe(tmp_path: Path, served_llm: str) -> None:
+    service = _service(tmp_path, allowlist=["127.0.0.1"])
+
+    record = service.run_llm_red_team(
+        LlmEndpoint(url=served_llm),
+        config=LlmRedTeamConfig(categories=(ProbeCategory.MULTI_TURN,), seed=1),
+        authorized=True,
+    )
+
+    assert record.metrics.total_probes >= 1
+    assert record.metrics.injection_success_rate > 0.0

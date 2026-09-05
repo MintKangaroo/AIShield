@@ -82,7 +82,8 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
       benign planted token
     - ✅ obfuscation-aware detectors (hyphen/space/reverse/base64/base32/hex)
     - ✅ dashboard surface
-    - conversation-level / multi-turn probes and a broader detector suite
+    - ✅ conversation-level / multi-turn probes with a refusal detector
+    - broader probe corpus and per-turn evidence
 
 추가 attack이나 defense 하나의 결과만으로 보편적인 강건성을 주장하지 않습니다. 다음
 milestone으로 이동하기 전에 이전 단계의 raw metric과 quality gate가 유지되어야 합니다.

@@ -514,7 +514,7 @@ class RegistryService:
 
         client = RemoteLlm(endpoint)
         with self._timed_run("llm_red_team", target_host=endpoint.host) as outcome:
-            record = run_llm_red_team(client.complete, endpoint, config=config)
+            record = run_llm_red_team(client.chat, endpoint, config=config)
             outcome["run_id"] = str(record.id)
             outcome["injection_success_rate"] = record.metrics.injection_success_rate
         with self._lock:

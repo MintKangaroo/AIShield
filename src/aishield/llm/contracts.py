@@ -26,6 +26,9 @@ class ProbeCategory(StrEnum):
     #: Try to bypass the model's refusal with jailbreak framing (roleplay,
     #: hypothetical, developer mode) aimed at a benign planted restricted token.
     JAILBREAK = "jailbreak"
+    #: Steer the model across several turns (a benign setup, then the ask) before
+    #: attempting to extract the restricted token — a conversation-level attack.
+    MULTI_TURN = "multi_turn"
 
 
 class LlmRedTeamConfig(RegistryModel):
@@ -45,6 +48,11 @@ class ProbeResult(RegistryModel):
     category: ProbeCategory
     succeeded: bool
     detail: str = Field(min_length=1, max_length=512)
+    # How many user turns the probe took (1 for single-turn probes).
+    turns: int = Field(default=1, ge=1, le=32)
+    # Whether the final response read as an explicit refusal — an auxiliary signal
+    # so a "held" result distinguishes a refusal from an off-topic deflection.
+    refused: bool = False
     prompt_sha256: Sha256
     response_sha256: Sha256
     # Populated only when the run explicitly opted to retain text.
