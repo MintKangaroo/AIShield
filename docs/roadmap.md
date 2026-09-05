@@ -87,3 +87,25 @@ contract, numerical test, API test, documentation을 함께 완료해야 합니�
 
 추가 attack이나 defense 하나의 결과만으로 보편적인 강건성을 주장하지 않습니다. 다음
 milestone으로 이동하기 전에 이전 단계의 raw metric과 quality gate가 유지되어야 합니다.
+
+---
+
+## 남은 작업 (deferred backlog — 2026-09-05 기준)
+
+핵심 9개 영역은 모두 shipped·main 반영·라이브 동작 확인 완료. 아래는 *깨진 것이
+아니라 더 하면 좋은 것들*로, 우선순위 순.
+
+1. **artifact_root 배포 문서화** *(quick win)* — 기본 `artifact_root=artifacts`가
+   쓰기 불가한 위치일 때 baseline append가 500이 난다. `AISHIELD_ARTIFACT_ROOT`를
+   쓰기 가능한 경로로 지정하도록 README/배포 가이드에 명시.
+2. **LLM probe 코퍼스 확장 + per-turn evidence** — probe 다양성을 넓히고 멀티턴
+   대화의 턴별 증거를 남긴다. probe는 계속 benign/diagnostic 유지 (성공해도
+   무해한 planted token만 노출).
+3. **PostgreSQL 경로 커버리지** — 현재 51%. 라이브 PostgreSQL 대상 통합 테스트를
+   CI(서비스 컨테이너)로 돌려 실경로를 검증.
+4. **GPU 실행 end-to-end 검증** — CUDA 워커 이미지는 빌드·핀 검증까지만 됨. 실제
+   GPU에서의 학습/공격 실행은 미검증 (개발 머신에 GPU 없음). GPU 러너 확보 시 확인.
+5. **메타데이터 레코드 집합 상한** — append-only 저널은 설계상 무한 증가. 레코드
+   자체의 bounding/compaction은 별도 backend 과제 (GC는 orphan artifact만 회수).
+6. **per-key scope + 감사** — 누가 무엇을 실행했는지 API 키 스코프·감사 로그.
+7. **decision-only HopSkipJump 정교화** — 현재 boundary attack은 label-only 기본형.
